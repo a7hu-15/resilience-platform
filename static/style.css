@@ -210,3 +210,462 @@ button:hover {
     background: #00ff88;
     color: #000;
 }
+/* ── Phase 5e: Batch Testing additions ────────────────────────────────────
+   APPEND these rules to the bottom of your existing static/style.css
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Textarea for multi-image input */
+textarea {
+    width: 100%;
+    background: #111;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+textarea:focus {
+    outline: none;
+    border-color: #00ff88;
+}
+
+.hint {
+    color: #555;
+    font-size: 12px;
+    margin-top: 6px;
+    font-family: 'Courier New', monospace;
+}
+
+/* Per-image detail card */
+.image-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+.image-title {
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.grade-badge {
+    border: 1px solid;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* Recovery time label inside chaos test rows */
+.rt {
+    color: #888;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+/* Comparison table */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    min-width: 700px;
+}
+.comparison-table th {
+    background: #1a1a1a;
+    color: #888;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    white-space: nowrap;
+}
+.comparison-table td {
+    color: #ccc;
+    padding: 10px 12px;
+    border-bottom: 1px solid #1e1e1e;
+    vertical-align: middle;
+}
+.comparison-table tr:hover td {
+    background: #151515;
+}
+.comparison-table .img-cell {
+    color: #00ff88;
+    font-weight: bold;
+    max-width: 200px;
+    word-break: break-all;
+}
+.comparison-table .err-cell {
+    color: #ff4444;
+}
+.dl-link {
+    color: #00ff88;
+    text-decoration: none;
+    border: 1px solid #00ff88;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+.dl-link:hover {
+    background: #00ff8820;
+}
+
+/* ── Phase 5e: Batch Testing additions ────────────────────────────────────
+   APPEND these rules to the bottom of your existing static/style.css
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Textarea for multi-image input */
+textarea {
+    width: 100%;
+    background: #111;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+textarea:focus {
+    outline: none;
+    border-color: #00ff88;
+}
+
+.hint {
+    color: #555;
+    font-size: 12px;
+    margin-top: 6px;
+    font-family: 'Courier New', monospace;
+}
+
+/* Per-image detail card */
+.image-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+.image-title {
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.grade-badge {
+    border: 1px solid;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* Recovery time label inside chaos test rows */
+.rt {
+    color: #888;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+/* Comparison table */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    min-width: 700px;
+}
+.comparison-table th {
+    background: #1a1a1a;
+    color: #888;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    white-space: nowrap;
+}
+.comparison-table td {
+    color: #ccc;
+    padding: 10px 12px;
+    border-bottom: 1px solid #1e1e1e;
+    vertical-align: middle;
+}
+.comparison-table tr:hover td {
+    background: #151515;
+}
+.comparison-table .img-cell {
+    color: #00ff88;
+    font-weight: bold;
+    max-width: 200px;
+    word-break: break-all;
+}
+.comparison-table .err-cell {
+    color: #ff4444;
+}
+.dl-link {
+    color: #00ff88;
+    text-decoration: none;
+    border: 1px solid #00ff88;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+.dl-link:hover {
+    background: #00ff8820;
+}
+
+/* ── Phase 5f: Auth + Nav additions ──────────────────────────────────────── */
+
+/* Top nav bar */
+.topnav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 24px 0;
+    border-bottom: 1px solid #222;
+    margin-bottom: 28px;
+}
+.nav-brand {
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    font-weight: bold;
+}
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.nav-user {
+    color: #555;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+.nav-link {
+    color: #888;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+.nav-link:hover { color: #00ff88; }
+.nav-link.logout { color: #ff4444; }
+.nav-link.logout:hover { color: #ff6666; }
+
+/* Auth pages */
+.auth-container {
+    max-width: 420px;
+    margin: 80px auto;
+}
+.auth-form input {
+    width: 100%;
+    background: #111;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+.auth-form input:focus {
+    outline: none;
+    border-color: #00ff88;
+}
+.auth-link {
+    text-align: center;
+    color: #555;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    margin-top: 16px;
+}
+.auth-link a { color: #00ff88; text-decoration: none; }
+.auth-link a:hover { text-decoration: underline; }
+
+/* Flash error */
+.flash-error {
+    background: #1a0000;
+    border: 1px solid #ff4444;
+    color: #ff4444;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+/* ── Textarea ── */
+textarea {
+    width: 100%;
+    background: #111;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+textarea:focus { outline: none; border-color: #00ff88; }
+.hint { color: #555; font-size: 12px; margin-top: 6px; }
+.hint-inline { color: #555; font-size: 12px; font-weight: normal; }
+
+/* ── Notification section ── */
+.notif-section {
+    background: #0d0d0d;
+    border: 1px solid #1e1e1e;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+}
+.notif-title {
+    color: #888;
+    font-size: 13px;
+    margin: 0 0 14px 0;
+    font-family: 'Courier New', monospace;
+}
+
+/* ── Auth forms — text inputs ── */
+.auth-form input,
+.form-group input[type="email"],
+.form-group input[type="text"],
+.form-group input[type="password"] {
+    width: 100%;
+    background: #111;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    box-sizing: border-box;
+}
+.auth-form input:focus,
+.form-group input:focus { outline: none; border-color: #00ff88; }
+.auth-link { text-align: center; color: #555; font-size: 13px; margin-top: 16px; }
+.auth-link a { color: #00ff88; text-decoration: none; }
+.flash-error {
+    background: #1a0000;
+    border: 1px solid #ff4444;
+    color: #ff4444;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+/* ── Image cards (batch results) ── */
+.image-card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+.image-title {
+    color: #00ff88;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.grade-badge {
+    border: 1px solid;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: bold;
+}
+.rt { color: #888; font-size: 12px; margin-left: 6px; }
+
+/* ── Comparison table ── */
+.table-wrap { overflow-x: auto; }
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 700px;
+}
+.comparison-table th {
+    background: #1a1a1a;
+    color: #888;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+}
+.comparison-table td {
+    color: #ccc;
+    padding: 10px 12px;
+    border-bottom: 1px solid #1e1e1e;
+}
+.comparison-table tr:hover td { background: #151515; }
+.comparison-table .img-cell { color: #00ff88; font-weight: bold; }
+.dl-link {
+    color: #00ff88;
+    text-decoration: none;
+    border: 1px solid #00ff88;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* ── Top nav ── */
+.topnav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 24px 0;
+    border-bottom: 1px solid #222;
+    margin-bottom: 28px;
+}
+.nav-brand { color: #00ff88; font-size: 15px; font-weight: bold; }
+.nav-links { display: flex; align-items: center; gap: 16px; }
+.nav-user { color: #555; font-size: 13px; }
+.nav-link { color: #888; font-size: 13px; text-decoration: none; }
+.nav-link:hover { color: #00ff88; }
+.nav-link.logout { color: #ff4444; }
+
+/* ── Auth container ── */
+.auth-container { max-width: 420px; margin: 80px auto; }
+
+/* ── Download button ── */
+.download-btn {
+    display: inline-block;
+    background: #00ff88;
+    color: #000;
+    padding: 10px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 14px;
+}

@@ -8,131 +8,160 @@
 <body>
     <div class="container wide">
         <h1>📊 Resilience Test Results</h1>
-        <p class="subtitle">Image tested: <strong>{{ docker_image }}</strong></p>
+        <p class="subtitle">Tested {{ all_results | length }} image(s)</p>
 
-        <!-- Deployment Status -->
+        {% set batch = all_results | length > 1 %}
+
+        {# ── Batch Comparison Table (shown only when >1 image) ─────────── #}
+        {% if batch %}
         <div class="section">
-            <h2>🚀 Deployment</h2>
-            {% if deploy_error %}
-                <div class="test-item fail">❌ Deployment Failed — {{ deploy_error }}</div>
-            {% elif deployed and pods_ready %}
-                <div class="test-item pass">✅ Deployment Successful — 2 pods running</div>
-            {% elif deployed and not pods_ready %}
-                <div class="test-item fail">❌ Pods did not become ready in time</div>
-            {% endif %}
-        </div>
-
-        {% if scores %}
-        <!-- Overall Score -->
-        <div class="section">
-            <h2>🏆 Overall Resilience Score</h2>
-            <div class="overall-score" style="border-color: {{ scores.grade_color }};">
-                <div class="score-number" style="color: {{ scores.grade_color }};">
-                    {{ scores.overall }}<span class="score-max">/100</span>
-                </div>
-                <div class="grade" style="color: {{ scores.grade_color }};">
-                    Grade: {{ scores.grade }} — {{ scores.grade_label }}
-                </div>
-            </div>
-        </div>
-
-        <!-- Download Button -->
-        <div class="section" style="text-align: center;">
-            <a href="/download/{{ job_id }}" class="download-btn">⬇️ Download PDF Report</a>
-        </div>
-
-        <!-- Score Breakdown -->
-        <div class="section">
-            <h2>📈 Score Breakdown</h2>
-            <div class="score-grid">
-
-                <div class="score-card">
-                    <div class="score-label">Self-Healing</div>
-                    <div class="score-bar-wrap">
-                        <div class="score-bar" style="width: {{ scores.self_healing }}%; background: {{ scores.grade_color }};"></div>
-                    </div>
-                    <div class="score-value">{{ scores.self_healing }}/100</div>
-                </div>
-
-                <div class="score-card">
-                    <div class="score-label">CPU Resilience</div>
-                    <div class="score-bar-wrap">
-                        <div class="score-bar" style="width: {{ scores.cpu_resilience }}%; background: {{ scores.grade_color }};"></div>
-                    </div>
-                    <div class="score-value">{{ scores.cpu_resilience }}/100</div>
-                </div>
-
-                <div class="score-card">
-                    <div class="score-label">Memory Resilience</div>
-                    <div class="score-bar-wrap">
-                        <div class="score-bar" style="width: {{ scores.memory_resilience }}%; background: {{ scores.grade_color }};"></div>
-                    </div>
-                    <div class="score-value">{{ scores.memory_resilience }}/100</div>
-                </div>
-
-                <div class="score-card">
-                    <div class="score-label">Network Resilience</div>
-                    <div class="score-bar-wrap">
-                        <div class="score-bar" style="width: {{ scores.network_resilience }}%; background: {{ scores.grade_color }};"></div>
-                    </div>
-                    <div class="score-value">{{ scores.network_resilience }}/100</div>
-                </div>
-
-                <div class="score-card">
-                    <div class="score-label">Packet Resilience</div>
-                    <div class="score-bar-wrap">
-                        <div class="score-bar" style="width: {{ scores.packet_resilience }}%; background: {{ scores.grade_color }};"></div>
-                    </div>
-                    <div class="score-value">{{ scores.packet_resilience }}/100</div>
-                </div>
-
-                <div class="score-card">
-                    <div class="score-label">Recovery</div>
-                    <div class="score-bar-wrap">
-                        <div class="score-bar" style="width: {{ scores.recovery }}%; background: {{ scores.grade_color }};"></div>
-                    </div>
-                    <div class="score-value">{{ scores.recovery }}/100</div>
-                </div>
-
+            <h2>⚡ Comparison Summary</h2>
+            <div class="table-wrap">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Overall</th>
+                            <th>Grade</th>
+                            <th>Self-Healing</th>
+                            <th>CPU</th>
+                            <th>Memory</th>
+                            <th>Network</th>
+                            <th>Packet</th>
+                            <th>Recovery</th>
+                            <th>Report</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in all_results %}
+                        <tr>
+                            <td class="img-cell">{{ r.docker_image }}</td>
+                            {% if r.scores %}
+                                <td style="color: {{ r.scores.grade_color }}; font-weight: bold;">
+                                    {{ r.scores.overall }}/100
+                                </td>
+                                <td style="color: {{ r.scores.grade_color }}; font-weight: bold;">
+                                    {{ r.scores.grade }}
+                                </td>
+                                <td>{{ r.scores.self_healing }}</td>
+                                <td>{{ r.scores.cpu_resilience }}</td>
+                                <td>{{ r.scores.memory_resilience }}</td>
+                                <td>{{ r.scores.network_resilience }}</td>
+                                <td>{{ r.scores.packet_resilience }}</td>
+                                <td>{{ r.scores.recovery }}</td>
+                                <td>
+                                    <a href="/download/{{ job_id }}/{{ loop.index0 }}" class="dl-link">⬇ PDF</a>
+                                </td>
+                            {% elif r.deploy_error %}
+                                <td colspan="8" class="err-cell">❌ Deploy failed</td>
+                                <td>—</td>
+                            {% else %}
+                                <td colspan="8" class="err-cell">❌ Pods not ready</td>
+                                <td>—</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
         {% endif %}
 
-        <!-- Chaos Tests -->
-        <div class="section">
-            <h2>🔥 Chaos Tests</h2>
-            <div class="results">
-                {% if test_results %}
-                    {% set icons = {"PASS": "✅", "FAIL": "❌"} %}
-                    {% set classes = {"PASS": "pass", "FAIL": "fail"} %}
-                    <div class="test-item {{ classes[test_results.pod_chaos] }}">
-                        {{ icons[test_results.pod_chaos] }} Pod Chaos Test — {{ test_results.pod_chaos }}
-                    </div>
-                    <div class="test-item {{ classes[test_results.cpu_stress] }}">
-                        {{ icons[test_results.cpu_stress] }} CPU Stress Test — {{ test_results.cpu_stress }}
-                    </div>
-                    <div class="test-item {{ classes[test_results.memory_stress] }}">
-                        {{ icons[test_results.memory_stress] }} Memory Stress Test — {{ test_results.memory_stress }}
-                    </div>
-                    <div class="test-item {{ classes[test_results.network_delay] }}">
-                        {{ icons[test_results.network_delay] }} Network Delay Test — {{ test_results.network_delay }}
-                    </div>
-                    <div class="test-item {{ classes[test_results.packet_loss] }}">
-                        {{ icons[test_results.packet_loss] }} Packet Loss Test — {{ test_results.packet_loss }}
-                    </div>
-                    <div class="test-item {{ classes[test_results.recovery_validation] }}">
-                        {{ icons[test_results.recovery_validation] }} Recovery Validation — {{ test_results.recovery_validation }}
-                    </div>
-                {% else %}
-                    <div class="test-item pending">⏳ Pod Chaos Test — pending</div>
-                    <div class="test-item pending">⏳ CPU Stress Test — pending</div>
-                    <div class="test-item pending">⏳ Memory Stress Test — pending</div>
-                    <div class="test-item pending">⏳ Network Delay Test — pending</div>
-                    <div class="test-item pending">⏳ Packet Loss Test — pending</div>
-                    <div class="test-item pending">⏳ Recovery Validation — pending</div>
+        {# ── Per-Image Detail Cards ─────────────────────────────────────── #}
+        {% for r in all_results %}
+        <div class="image-card">
+            <h2 class="image-title">
+                🐳 {{ r.docker_image }}
+                {% if r.scores %}
+                    <span class="grade-badge" style="color: {{ r.scores.grade_color }}; border-color: {{ r.scores.grade_color }};">
+                        {{ r.scores.grade }} — {{ r.scores.overall }}/100
+                    </span>
+                {% endif %}
+            </h2>
+
+            <!-- Deployment Status -->
+            <div class="section">
+                <h3>🚀 Deployment</h3>
+                {% if r.deploy_error %}
+                    <div class="test-item fail">❌ Deployment Failed — {{ r.deploy_error }}</div>
+                {% elif r.deployed and r.pods_ready %}
+                    <div class="test-item pass">✅ Deployment Successful — 2 pods running</div>
+                {% elif r.deployed and not r.pods_ready %}
+                    <div class="test-item fail">❌ Pods did not become ready in time</div>
                 {% endif %}
             </div>
+
+            {% if r.scores %}
+            <!-- Overall Score -->
+            <div class="section">
+                <h3>🏆 Overall Resilience Score</h3>
+                <div class="overall-score" style="border-color: {{ r.scores.grade_color }};">
+                    <div class="score-number" style="color: {{ r.scores.grade_color }};">
+                        {{ r.scores.overall }}<span class="score-max">/100</span>
+                    </div>
+                    <div class="grade" style="color: {{ r.scores.grade_color }};">
+                        Grade: {{ r.scores.grade }} — {{ r.scores.grade_label }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download -->
+            <div class="section" style="text-align: center;">
+                <a href="/download/{{ job_id }}/{{ loop.index0 }}" class="download-btn">⬇️ Download PDF Report</a>
+            </div>
+
+            <!-- Score Breakdown -->
+            <div class="section">
+                <h3>📈 Score Breakdown</h3>
+                <div class="score-grid">
+                    {% set cats = [
+                        ('Self-Healing',     r.scores.self_healing),
+                        ('CPU Resilience',   r.scores.cpu_resilience),
+                        ('Memory Resilience',r.scores.memory_resilience),
+                        ('Network Resilience',r.scores.network_resilience),
+                        ('Packet Resilience',r.scores.packet_resilience),
+                        ('Recovery',         r.scores.recovery),
+                    ] %}
+                    {% for label, val in cats %}
+                    <div class="score-card">
+                        <div class="score-label">{{ label }}</div>
+                        <div class="score-bar-wrap">
+                            <div class="score-bar" style="width: {{ val }}%; background: {{ r.scores.grade_color }};"></div>
+                        </div>
+                        <div class="score-value">{{ val }}/100</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Chaos Tests -->
+            {% if r.test_results %}
+            <div class="section">
+                <h3>🔥 Chaos Tests</h3>
+                <div class="results">
+                    {% set icons = {"PASS": "✅", "FAIL": "❌"} %}
+                    {% set cls   = {"PASS": "pass", "FAIL": "fail"} %}
+                    {% macro row(label, key) %}
+                        {% set raw = r.test_results[key] %}
+                        {% set status = raw.status if raw is mapping else raw %}
+                        {% set rt = raw.recovery_time if raw is mapping else None %}
+                        <div class="test-item {{ cls[status] }}">
+                            {{ icons[status] }} {{ label }} — {{ status }}
+                            {% if rt is not none %}<span class="rt">({{ rt }}s)</span>{% endif %}
+                        </div>
+                    {% endmacro %}
+                    {{ row('Pod Chaos Test',       'pod_chaos') }}
+                    {{ row('CPU Stress Test',      'cpu_stress') }}
+                    {{ row('Memory Stress Test',   'memory_stress') }}
+                    {{ row('Network Delay Test',   'network_delay') }}
+                    {{ row('Packet Loss Test',     'packet_loss') }}
+                    {{ row('Recovery Validation',  'recovery_validation') }}
+                </div>
+            </div>
+            {% endif %}
         </div>
+        {% endfor %}
 
         <a href="/" class="back-btn">← Run Another Test</a>
     </div>

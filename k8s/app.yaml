@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resilience-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resilience-platform
+  template:
+    metadata:
+      labels:
+        app: resilience-platform
+    spec:
+      containers:
+      - name: app
+        image: ashu804/resilience-platform:latest
+        ports:
+        - containerPort: 5001
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: resilience-secrets
+              key: secret-key
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: resilience-secrets
+              key: db-password
+        - name: DATABASE_URL
+          value: postgresql://resilience:$(DB_PASSWORD)@postgres:5432/resilience
+        - name: MAIL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: resilience-secrets
+              key: mail-username
+        - name: MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: resilience-secrets
+              key: mail-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resilience-platform
+spec:
+  type: LoadBalancer
+  selector:
+    app: resilience-platform
+  ports:
+  - port: 80
+    targetPort: 5001

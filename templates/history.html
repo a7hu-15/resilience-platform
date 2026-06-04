@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test History — Resilience Platform</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container wide">
+        <nav class="topnav">
+            <span class="nav-brand">⚡ Resilience Platform</span>
+            <div class="nav-links">
+                <span class="nav-user">👤 {{ username }}</span>
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/logout" class="nav-link logout">Logout</a>
+            </div>
+        </nav>
+
+        <h1>📋 Test History</h1>
+        <p class="subtitle">All past runs for <strong>{{ username }}</strong></p>
+
+        {% if runs %}
+        <div class="section">
+            <div class="table-wrap">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Images Tested</th>
+                            <th>Scores</th>
+                            <th>Grades</th>
+                            <th>Date & Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in runs %}
+                        {% set images = run.docker_images.split(', ') %}
+                        {% set scores = run.overall_scores.split(', ') %}
+                        {% set grades = run.grades.split(', ') %}
+                        <tr>
+                            <td style="color: #555;">{{ loop.revindex }}</td>
+                            <td class="img-cell">
+                                {% for img in images %}
+                                    <div>{{ img }}</div>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for score in scores %}
+                                    <div style="color: #00ff88;">{{ score }}{% if score != 'N/A' %}/100{% endif %}</div>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for grade in grades %}
+                                    {% if grade == 'A' %}
+                                        <div style="color: #00ff88; font-weight: bold;">{{ grade }}</div>
+                                    {% elif grade == 'B' %}
+                                        <div style="color: #88ff00; font-weight: bold;">{{ grade }}</div>
+                                    {% elif grade == 'C' %}
+                                        <div style="color: #ffaa00; font-weight: bold;">{{ grade }}</div>
+                                    {% else %}
+                                        <div style="color: #ff4444; font-weight: bold;">{{ grade }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td style="color: #888; white-space: nowrap;">
+                                {{ run.ran_at.strftime('%b %d, %Y') }}<br>
+                                <span style="color: #555;">{{ run.ran_at.strftime('%H:%M') }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="section">
+            <div class="test-item pending" style="text-align: center; padding: 32px;">
+                ⏳ No test runs yet. <a href="/" style="color: #00ff88;">Run your first test →</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <a href="/" class="back-btn">← Back to Dashboard</a>
+    </div>
+</body>
+</html>
