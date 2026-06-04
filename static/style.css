@@ -193,3 +193,20 @@ button:hover {
     color: #fff;
     flex-shrink: 0;
 }
+
+.download-btn {
+    display: inline-block;
+    margin: 20px auto;
+    padding: 12px 28px;
+    background: #003322;
+    color: #00ff88;
+    border: 1px solid #00ff88;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    text-decoration: none;
+}
+.download-btn:hover {
+    background: #00ff88;
+    color: #000;
+}

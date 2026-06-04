@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
 from services.deployer import deploy_image, wait_for_pods, cleanup_deployment
 from services.chaos_runner import run_all_chaos_tests
 from services.scorer import calculate_scores
+from services.report_generator import generate_report
 import threading
 import uuid
 import time
@@ -49,6 +50,8 @@ def run_test_job(job_id, docker_image):
 
     test_results = run_all_chaos_tests(safe_name)
     scores = calculate_scores(test_results)
+    report_path = generate_report(job_id, docker_image, test_results, scores)
+    jobs[job_id]['report_path'] = report_path
 
     # Cleanup
     cleanup_deployment(safe_name)
@@ -58,6 +61,16 @@ def run_test_job(job_id, docker_image):
     jobs[job_id]['test_results'] = test_results
     jobs[job_id]['scores'] = scores
     jobs[job_id]['docker_image'] = docker_image
+
+
+@app.route('/download/<job_id>')
+def download(job_id):
+    job = jobs.get(job_id)
+    if not job or not job.get('report_path'):
+        return redirect(url_for('index'))
+    return send_file(job['report_path'],
+                     as_attachment=True,
+                     download_name=f"resilience-report-{job['docker_image'].replace(':','-')}.pdf")
 
 
 @app.route('/')
@@ -76,6 +89,7 @@ def run_test():
         'docker_image': docker_image,
         'test_results': None,
         'scores': None,
+        'report_path': None,
     }
 
     thread = threading.Thread(target=run_test_job, args=(job_id, docker_image))
@@ -117,8 +131,10 @@ def result(job_id):
                            deployed=True,
                            pods_ready=True,
                            test_results=job['test_results'],
-                           scores=job['scores'])
+                           scores=job['scores'],
+                           job_id=job_id)
 
 
 if __name__ == '__main__':
     app.run(debug=False, port=5001)
+

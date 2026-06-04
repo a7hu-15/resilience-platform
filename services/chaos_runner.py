@@ -150,21 +150,23 @@ def delete_chaos(yaml_path):
 
 
 def check_recovery(safe_name, required_pods=2):
-    time.sleep(30)
-    result = subprocess.run(
-        [
-            "kubectl", "get", "pods",
-            "-l", f"app=resilience-{safe_name}",
-            "--no-headers"
-        ],
-        capture_output=True, text=True
-    )
-    running = len([
-        line for line in result.stdout.strip().split("\n")
-        if line and "Running" in line
-    ])
-    return running >= required_pods
-
+    start = time.time()
+    time.sleep(5)  # Initial wait reduced from 30s
+    for _ in range(25):  # poll up to 25 times
+        result = subprocess.run(
+            ["kubectl", "get", "pods",
+             "-l", f"app=resilience-{safe_name}",
+             "--no-headers"],
+            capture_output=True, text=True
+        )
+        running = len([
+            line for line in result.stdout.strip().split("\n")
+            if line and "Running" in line
+        ])
+        if running >= required_pods:
+            return {"status": "PASS", "recovery_time": round(time.time() - start)}
+        time.sleep(2)
+    return "FAIL"
 
 def run_all_chaos_tests(safe_name):
     results = {}
@@ -214,7 +216,7 @@ def run_all_chaos_tests(safe_name):
             continue
 
         recovered = check_recovery(safe_name)
-        results[test["key"]] = "PASS" if recovered else "FAIL"
+        results[test["key"]] = recovered  # now returns dict with recovery_time or "FAIL"
         print(f"  Recovery: {results[test['key']]}")
 
         delete_chaos(test["path"])
