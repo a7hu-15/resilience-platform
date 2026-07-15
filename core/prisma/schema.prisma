@@ -1,13 +1,58 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  testRuns     TestRun[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model TestRun {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id])
+  imageName        String
+  status           String          @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  masterScore      Float?
+  securityScore    Float?
+  performanceScore Float?
+  resilienceScore  Float?
+  securityLogs     SecurityLog[]
+  chaosMetrics     ChaosMetric[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model SecurityLog {
+  id           String   @id @default(cuid())
+  testRunId    String
+  testRun      TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  criticalCVEs Int      @default(0)
+  highCVEs     Int      @default(0)
+  mediumCVEs   Int      @default(0)
+  reportJson   String // Store raw Trivy JSON output
+  createdAt    DateTime @default(now())
+}
+
+model ChaosMetric {
+  id           String   @id @default(cuid())
+  testRunId    String
+  testRun      TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  phase        String // e.g., "POD_KILL", "CPU_STRESS", "LOAD_TEST"
+  rtoSeconds   Float? // Recovery Time Objective
+  p95Latency   Float? // 95th Percentile Latency
+  success      Boolean
+  createdAt    DateTime @default(now())
 }
