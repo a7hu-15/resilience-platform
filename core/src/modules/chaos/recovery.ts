@@ -21,7 +21,7 @@ export async function observeRecovery(namespace: string): Promise<number | null>
         namespace
       });
 
-      const deployment = response.body;
+      const deployment = response;
       const desiredReplicas = deployment.spec?.replicas || 1;
       const readyReplicas = deployment.status?.readyReplicas || 0;
 
