@@ -1,65 +1,95 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
 
-export default function Home() {
+import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import styles from './page.module.css';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card } from '../components/ui/Card';
+
+export default function Dashboard() {
+  const [image, setImage] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const [logs, setLogs] = useState<{ time: string; msg: string }[]>([]);
+  const router = useRouter();
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
+  const startTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!image) return;
+    
+    setIsRunning(true);
+    setLogs([{ time: new Date().toLocaleTimeString(), msg: `Initializing resilience pipeline for [${image}]...` }]);
+
+    // Simulate SSE for now until API is connected
+    const fakeLogs = [
+      "Starting Trivy Scan...",
+      "Analyzing CVEs...",
+      "Generating Kubernetes Namespace...",
+      "Deploying Pods and Services...",
+      "Executing k6 Load Test...",
+      "Injecting Chaos Mesh Experiments...",
+      "Calculating Master Score...",
+      "Pipeline Complete."
+    ];
+
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < fakeLogs.length) {
+        setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: fakeLogs[i] }]);
+        i++;
+      } else {
+        clearInterval(interval);
+        setTimeout(() => {
+          router.push(`/results/${btoa(image)}`); // Mock routing
+        }, 1000);
+      }
+    }, 1200);
+  };
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <div className={styles.header}>
+          <h1 className={`${styles.title} text-gradient`}>Resilience Platform</h1>
+          <p className={styles.subtitle}>Automated Security, Performance, and Chaos Engineering</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <Card>
+          <form className={styles.form} onSubmit={startTest}>
+            <Input 
+              placeholder="Enter Docker Image (e.g., nginx:alpine)" 
+              value={image}
+              onChange={(e) => setImage(e.target.value)}
+              disabled={isRunning}
+              required
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <Button type="submit" disabled={isRunning || !image}>
+              {isRunning ? 'Running Analysis...' : 'Run Resilience Test'}
+            </Button>
+          </form>
+
+          {isRunning && (
+            <div className={styles.terminal}>
+              {logs.map((log, index) => (
+                <div key={index} className={styles.logEntry}>
+                  <span className={styles.timestamp}>[{log.time}]</span>
+                  <span className={styles.message}>
+                    {index === logs.length - 1 && index !== 8 ? <span className={styles.spinner} /> : null}
+                    {log.msg}
+                  </span>
+                </div>
+              ))}
+              <div ref={terminalEndRef} />
+            </div>
+          )}
+        </Card>
       </main>
     </div>
   );
