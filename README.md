@@ -18,28 +18,28 @@ This platform is currently undergoing a massive architectural rewrite from a leg
 - Installing `@kubernetes/client-node` and Prisma ORM.
 - Designing the database schema for `TestRuns`, `SecurityLogs`, and `ChaosMetrics`.
 
-### ⏳ Day 2: Security & Deployment Engines
+### ✅ Day 2: Security & Deployment Engines
 - Implementing programmatic Trivy scanning to extract real CVE JSON data.
 - Building the dynamic Kubernetes Deployment/Service generator.
 
-### ⏳ Day 3: Load Testing & Chaos Engineering Engines
+### ✅ Day 3: Load Testing & Chaos Engineering Engines
 - Implementing k6 load testing for P95 latency and RPS metrics.
 - Orchestrating Chaos Mesh CRDs (PodKill, CPU Stress) dynamically via API.
 
-### ⏳ Day 4: Precise Scoring System & Real Reporting
+### ✅ Day 4: Precise Scoring System & Real Reporting
 - Building algorithms to translate raw RTO (Recovery Time Objective) and CVE data into a precise 0-100 score.
 - Implementing PDF report generation.
 
-### ⏳ Day 5: Backend Integration & Platform Self-Testing
+### ✅ Day 5: Backend Integration & Platform Self-Testing
 - Connecting the 4 engines (Security, Deploy, Load, Chaos) into a seamless pipeline.
 - Running Unit & Integration tests against known mock Docker images.
 
-### ⏳ Day 6: Premium UI & Real-Time Dashboard
+### ✅ Day 6: Premium UI & Real-Time Dashboard
 - Building a stunning, premium UI with Vanilla CSS and micro-animations.
 - Implementing Live Server-Sent Events (SSE) so users can watch their tests execute in real-time.
 
-### ⏳ Day 7: Final Polish & Deployment Prep
-- End-to-End User Journey Testing.
+### ✅ Day 7: Final Polish & Deployment Prep
+- End-to-End User Journey Testing using Playwright.
 - Preparing production manifests to deploy the platform itself onto AWS EKS.
 
 ---
@@ -65,6 +65,28 @@ resilience-platform/
             ├── reports/      # PDF Generator
             ├── scoring/      # Scoring Algorithms
             └── security/     # Trivy Scanning Logic
+```
+
+## ⚙️ Environment Variables
+
+Copy the `.env.example` file to `.env` and configure the following for your environment:
+
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/resilience_db"
+KUBECONFIG_PATH="~/.kube/config"
+NEXT_PUBLIC_API_URL="http://localhost:3000/api"
+```
+
+## 🚢 How to Deploy (Kubernetes)
+
+The platform is designed to be self-hosted on a Kubernetes cluster. Standard manifests are provided in the `core/k8s/` directory.
+
+```bash
+# Deploy the Resilience Platform
+kubectl apply -f core/k8s/platform-deployment.yaml
+
+# Expose the Platform
+kubectl apply -f core/k8s/platform-service.yaml
 ```
 
 ## 📝 License

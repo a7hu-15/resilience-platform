@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server';
 import { executeTestPipeline } from '../../../modules/pipeline/orchestrator';
 import { randomUUID } from 'crypto';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
+import { sendCompletionEmail } from '../../../modules/notifications/email';
+import prisma from '../../../db/prisma';
 
 export async function POST(request: Request) {
   try {
-    const { imageName, userId } = await request.json();
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!imageName || !userId) {
-      return NextResponse.json({ error: 'Missing imageName or userId' }, { status: 400 });
+    // @ts-ignore
+    const userId = session.user.id;
+    const { imageName } = await request.json();
+
+    if (!imageName) {
+      return NextResponse.json({ error: 'Missing imageName' }, { status: 400 });
     }
 
     const testRunId = randomUUID();
@@ -65,6 +74,10 @@ export async function POST(request: Request) {
             }
           });
         }
+
+        // 6. Send Email Notification
+        // @ts-ignore
+        await sendCompletionEmail(session.user.email, testRunId, reportData.masterScore);
       })
       .catch(async (error) => {
         // 6. Update Prisma on Failure
