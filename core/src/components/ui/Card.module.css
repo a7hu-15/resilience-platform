@@ -14,3 +14,9 @@
   background: var(--bg-card-hover);
   border-color: rgba(255, 255, 255, 0.15);
 }
+
+@media (max-width: 768px) {
+  .card {
+    padding: 1.25rem;
+  }
+}

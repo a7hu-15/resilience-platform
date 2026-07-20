@@ -162,3 +162,48 @@
   padding: 1rem 2rem;
   animation: pulseGlow 3s infinite;
 }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .page {
+    padding: 2rem 1rem;
+  }
+  
+  .title {
+    font-size: 2.2rem;
+  }
+  
+  .header {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .masterScoreRing {
+    width: 220px;
+    height: 220px;
+  }
+  
+  .scoreValue {
+    font-size: 4.5rem;
+  }
+  
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.8rem;
+  }
+  
+  .masterScoreRing {
+    width: 180px;
+    height: 180px;
+  }
+  
+  .scoreValue {
+    font-size: 3.5rem;
+  }
+}

@@ -186,3 +186,61 @@
   animation: spin 1s linear infinite;
   margin-right: 0.5rem;
 }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .page {
+    padding: 2rem 1rem;
+  }
+
+  .title {
+    font-size: 2.2rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .stepperContainer {
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    row-gap: 1.5rem;
+  }
+
+  .stepperContainer::before {
+    display: none; /* Hide the line on mobile as elements might wrap */
+  }
+
+  .stepCircle {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+  }
+
+  .stepLabel {
+    font-size: 0.75rem;
+    text-align: center;
+  }
+
+  .terminal {
+    padding: 1rem;
+    min-height: 200px;
+  }
+
+  .logEntry {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .timestamp {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.8rem;
+  }
+}
+
