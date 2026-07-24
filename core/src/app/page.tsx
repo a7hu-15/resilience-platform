@@ -95,8 +95,9 @@ export default function Dashboard() {
             } else if (data.status === 'FAILED') {
               clearInterval(interval);
               clearInterval(stepInterval);
-              addLog('Pipeline failed during execution.');
-              setIsRunning(false);
+              addLog('❌ Pipeline failed during execution (Is Docker/Kubernetes running?).');
+              // We do not set isRunning to false here so the terminal stays visible for the user to read.
+              setCurrentStep(PIPELINE_STEPS.length); // stop the spinner
             } else {
               addLog('Executing backend engine diagnostics...');
             }
@@ -183,6 +184,11 @@ export default function Dashboard() {
                     ))}
                     <div ref={terminalEndRef} />
                   </div>
+                  {currentStep >= PIPELINE_STEPS.length && (
+                    <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                      <Button onClick={() => setIsRunning(false)}>Try Again</Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
