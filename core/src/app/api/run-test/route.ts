@@ -6,6 +6,38 @@ import { authOptions } from '../auth/[...nextauth]/route';
 import { sendCompletionEmail } from '../../../modules/notifications/email';
 import prisma from '../../../db/prisma';
 
+/**
+ * @swagger
+ * /api/run-test:
+ *   post:
+ *     summary: Trigger a new test pipeline run
+ *     description: Starts a new test run for a given Docker image, including security, performance, and resilience tests.
+ *     tags:
+ *       - Pipeline
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - imageName
+ *             properties:
+ *               imageName:
+ *                 type: string
+ *                 description: The name of the docker image to test
+ *     responses:
+ *       202:
+ *         description: Test pipeline initiated successfully
+ *       400:
+ *         description: Missing imageName
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
