@@ -78,6 +78,8 @@ export async function POST(request: Request) {
             status: 'COMPLETED',
             masterScore: reportData.masterScore,
             securityScore: reportData.securityScore,
+            iacScore: reportData.iacScore,
+            dastScore: reportData.dastScore,
             performanceScore: reportData.performanceScore,
             resilienceScore: reportData.resilienceScore
           }
@@ -94,7 +96,45 @@ export async function POST(request: Request) {
           }
         });
 
-        // 5. Save Chaos Metrics
+        // 5. Save DastLog
+        await prisma.dastLog.create({
+          data: {
+            testRunId: testRunId,
+            sqlInjectionCount: reportData.dastResult.sqlInjectionCount,
+            xssCount: reportData.dastResult.xssCount,
+            brokenAuthCount: reportData.dastResult.brokenAuthCount,
+            cveId: reportData.dastResult.cveId,
+            description: reportData.dastResult.description,
+            mitigationSteps: reportData.dastResult.mitigationSteps,
+            reportJson: JSON.stringify(reportData.dastResult.rawJson)
+          }
+        });
+
+        // 6. Save IacLog
+        await prisma.iacLog.create({
+          data: {
+            testRunId: testRunId,
+            missingLimitsCount: reportData.iacResult.missingLimitsCount,
+            rootPrivilegeCount: reportData.iacResult.rootPrivilegeCount,
+            networkPolicyFlawsCount: reportData.iacResult.networkPolicyFlawsCount,
+            cveId: reportData.iacResult.cveId,
+            description: reportData.iacResult.description,
+            mitigationSteps: reportData.iacResult.mitigationSteps,
+            reportJson: JSON.stringify(reportData.iacResult.rawJson)
+          }
+        });
+
+        // 7. Save Performance Metrics
+        await prisma.performanceMetric.create({
+          data: {
+            testRunId: testRunId,
+            p95LatencyMs: reportData.performanceResult.p95LatencyMs,
+            rps: reportData.performanceResult.requestsPerSecond,
+            successRate: reportData.performanceResult.successRate
+          }
+        });
+
+        // 8. Save Chaos Metrics
         if (reportData.rtoSeconds !== null) {
           await prisma.chaosMetric.create({
             data: {
@@ -107,7 +147,7 @@ export async function POST(request: Request) {
           });
         }
 
-        // 6. Send Email Notification
+        // 9. Send Email Notification
         // @ts-ignore
         await sendCompletionEmail(session.user.email, testRunId, reportData.masterScore);
       })

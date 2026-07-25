@@ -23,28 +23,6 @@ import prisma from '../../../../db/prisma';
  *     responses:
  *       200:
  *         description: Test run results retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     imageName:
- *                       type: string
- *                     masterScore:
- *                       type: number
- *                     securityScore:
- *                       type: number
- *                     performanceScore:
- *                       type: number
- *                     resilienceScore:
- *                       type: number
- *                     status:
- *                       type: string
  *       401:
  *         description: Unauthorized
  *       403:
@@ -65,15 +43,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const testRun = await prisma.testRun.findUnique({
       where: { id },
-      select: {
-        id: true,
-        imageName: true,
-        masterScore: true,
-        securityScore: true,
-        performanceScore: true,
-        resilienceScore: true,
-        status: true,
-        userId: true
+      include: {
+        securityLogs: true,
+        dastLogs: true,
+        iacLogs: true,
+        performanceMetrics: true,
+        chaosMetrics: true
       }
     });
 
