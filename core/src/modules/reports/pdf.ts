@@ -3,14 +3,20 @@ import { createWriteStream } from 'fs';
 import { join } from 'path';
 import { TrivyScanResult } from '../security/trivy';
 import { LoadTestResult } from '../load/k6';
+import { DastScanResult } from '../security/dast';
+import { IacScanResult } from '../security/iac';
 
 export interface ReportData {
   imageName: string;
   masterScore: number;
   securityScore: number;
+  iacScore: number;
+  dastScore: number;
   performanceScore: number;
   resilienceScore: number;
   securityResult: TrivyScanResult;
+  iacResult: IacScanResult;
+  dastResult: DastScanResult;
   performanceResult: LoadTestResult;
   rtoSeconds: number | null;
 }
@@ -46,22 +52,36 @@ export async function generatePDFReport(testRunId: string, data: ReportData): Pr
       doc.fontSize(20).text(`Master Resilience Score: ${data.masterScore} / 100`, { align: 'center' });
       doc.moveDown(2);
 
-      // Security Section
-      doc.fontSize(16).font('Helvetica-Bold').text(`1. Security Score: ${data.securityScore} / 100`);
+      // Container Security Section
+      doc.fontSize(16).font('Helvetica-Bold').text(`1. Container Security Score: ${data.securityScore} / 100`);
       doc.fontSize(12).font('Helvetica').text(`Critical CVEs: ${data.securityResult.critical}`);
       doc.text(`High CVEs: ${data.securityResult.high}`);
       doc.text(`Medium CVEs: ${data.securityResult.medium}`);
       doc.moveDown();
 
+      // IaC Security Section
+      doc.fontSize(16).font('Helvetica-Bold').text(`2. IaC Security Score: ${data.iacScore} / 100`);
+      doc.fontSize(12).font('Helvetica').text(`Root Privileges: ${data.iacResult.rootPrivilegeCount}`);
+      doc.text(`Missing Limits: ${data.iacResult.missingLimitsCount}`);
+      doc.text(`Network Policy Flaws: ${data.iacResult.networkPolicyFlawsCount}`);
+      doc.moveDown();
+
+      // DAST Section
+      doc.fontSize(16).font('Helvetica-Bold').text(`3. DAST Score: ${data.dastScore} / 100`);
+      doc.fontSize(12).font('Helvetica').text(`SQL Injections: ${data.dastResult.sqlInjectionCount}`);
+      doc.text(`XSS: ${data.dastResult.xssCount}`);
+      doc.text(`Broken Auth: ${data.dastResult.brokenAuthCount}`);
+      doc.moveDown();
+
       // Performance Section
-      doc.fontSize(16).font('Helvetica-Bold').text(`2. Performance Score: ${data.performanceScore} / 100`);
+      doc.fontSize(16).font('Helvetica-Bold').text(`4. Performance Score: ${data.performanceScore} / 100`);
       doc.fontSize(12).font('Helvetica').text(`Requests Per Second (RPS): ${data.performanceResult.requestsPerSecond}`);
       doc.text(`P95 Latency: ${data.performanceResult.p95LatencyMs} ms`);
       doc.text(`Success Rate: ${data.performanceResult.successRate.toFixed(2)}%`);
       doc.moveDown();
 
       // Resilience Section
-      doc.fontSize(16).font('Helvetica-Bold').text(`3. Resilience Score: ${data.resilienceScore} / 100`);
+      doc.fontSize(16).font('Helvetica-Bold').text(`5. Resilience Score: ${data.resilienceScore} / 100`);
       if (data.rtoSeconds === null) {
         doc.fontSize(12).font('Helvetica').text(`Recovery Time Objective (RTO): FAILED TO RECOVER`);
       } else {

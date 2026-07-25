@@ -1,5 +1,7 @@
 import { TrivyScanResult } from '../security/trivy';
 import { LoadTestResult } from '../load/k6';
+import { DastScanResult } from '../security/dast';
+import { IacScanResult } from '../security/iac';
 
 /**
  * Calculates a very precise Security Score (0-100) based on Trivy CVE counts.
@@ -70,21 +72,55 @@ export function calculateResilienceScore(rtoSeconds: number | null): number {
 }
 
 /**
+ * Calculates a precise DAST Score (0-100) based on OWASP ZAP vulnerabilities.
+ */
+export function calculateDastScore(scan: DastScanResult): number {
+  const baseScore = 100;
+  const deductions = 
+    (scan.sqlInjectionCount * 20) + 
+    (scan.xssCount * 10) + 
+    (scan.brokenAuthCount * 15);
+  
+  const score = baseScore - deductions;
+  return Math.max(0, parseFloat(score.toFixed(2)));
+}
+
+/**
+ * Calculates a precise IaC Score (0-100) based on KubeLinter/Checkov misconfigurations.
+ */
+export function calculateIacScore(scan: IacScanResult): number {
+  const baseScore = 100;
+  const deductions = 
+    (scan.rootPrivilegeCount * 25) + 
+    (scan.networkPolicyFlawsCount * 10) + 
+    (scan.missingLimitsCount * 5);
+  
+  const score = baseScore - deductions;
+  return Math.max(0, parseFloat(score.toFixed(2)));
+}
+
+/**
  * Combines the sub-scores into a precise Master Resilience Score.
  * Weights:
- * - Security: 30%
- * - Performance: 30%
- * - Resilience: 40%
+ * - Container Security: 20%
+ * - IaC Security: 20%
+ * - DAST: 20%
+ * - Performance: 20%
+ * - Resilience: 20%
  */
 export function calculateMasterScore(
   securityScore: number, 
+  iacScore: number,
+  dastScore: number,
   performanceScore: number, 
   resilienceScore: number
 ): number {
   const masterScore = 
-    (securityScore * 0.30) + 
-    (performanceScore * 0.30) + 
-    (resilienceScore * 0.40);
+    (securityScore * 0.20) + 
+    (iacScore * 0.20) + 
+    (dastScore * 0.20) + 
+    (performanceScore * 0.20) + 
+    (resilienceScore * 0.20);
 
   return parseFloat(masterScore.toFixed(2));
 }

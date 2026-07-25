@@ -1,5 +1,7 @@
 import { 
   calculateSecurityScore, 
+  calculateIacScore,
+  calculateDastScore,
   calculatePerformanceScore, 
   calculateResilienceScore, 
   calculateMasterScore 
@@ -88,10 +90,32 @@ describe('Scoring Algorithms', () => {
     });
   });
 
+  describe('calculateDastScore', () => {
+    it('should calculate precise DAST score', () => {
+      // 1 sqli (-20), 2 xss (-20), 1 broken auth (-15) = -55
+      const mockResult = {
+        sqlInjectionCount: 1, xssCount: 2, brokenAuthCount: 1,
+        cveId: null, description: null, mitigationSteps: null, rawJson: {}
+      };
+      expect(calculateDastScore(mockResult)).toBe(45);
+    });
+  });
+
+  describe('calculateIacScore', () => {
+    it('should calculate precise IaC score', () => {
+      // 1 root (-25), 2 network (-20), 1 limit (-5) = -50
+      const mockResult = {
+        rootPrivilegeCount: 1, networkPolicyFlawsCount: 2, missingLimitsCount: 1,
+        cveId: null, description: null, mitigationSteps: null, rawJson: {}
+      };
+      expect(calculateIacScore(mockResult)).toBe(50);
+    });
+  });
+
   describe('calculateMasterScore', () => {
     it('should calculate the perfectly weighted master score', () => {
-      // 100 * 0.3 + 80 * 0.3 + 90 * 0.4 = 30 + 24 + 36 = 90
-      expect(calculateMasterScore(100, 80, 90)).toBe(90);
+      // 100 * 0.2 + 80 * 0.2 + 90 * 0.2 + 70 * 0.2 + 60 * 0.2 = 20 + 16 + 18 + 14 + 12 = 80
+      expect(calculateMasterScore(100, 80, 90, 70, 60)).toBe(80);
     });
   });
 });
