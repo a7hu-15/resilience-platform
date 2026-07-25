@@ -26,9 +26,14 @@ model TestRun {
   status           String          @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
   masterScore      Float?
   securityScore    Float?
+  dastScore        Float?
+  iacScore         Float?
   performanceScore Float?
   resilienceScore  Float?
   securityLogs     SecurityLog[]
+  dastLogs         DastLog[]
+  iacLogs          IacLog[]
+  performanceMetrics PerformanceMetric[]
   chaosMetrics     ChaosMetric[]
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -53,5 +58,43 @@ model ChaosMetric {
   rtoSeconds   Float? // Recovery Time Objective
   p95Latency   Float? // 95th Percentile Latency
   success      Boolean
+  createdAt    DateTime @default(now())
+}
+
+model DastLog {
+  id                String   @id @default(cuid())
+  testRunId         String
+  testRun           TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  sqlInjectionCount Int      @default(0)
+  xssCount          Int      @default(0)
+  brokenAuthCount   Int      @default(0)
+  cveId             String?
+  description       String?
+  mitigationSteps   String?
+  reportJson        String // Store raw OWASP ZAP JSON output
+  createdAt         DateTime @default(now())
+}
+
+model IacLog {
+  id                      String   @id @default(cuid())
+  testRunId               String
+  testRun                 TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  missingLimitsCount      Int      @default(0)
+  rootPrivilegeCount      Int      @default(0)
+  networkPolicyFlawsCount Int      @default(0)
+  cveId                   String?
+  description             String?
+  mitigationSteps         String?
+  reportJson              String // Store raw Checkov/KubeLinter JSON output
+  createdAt               DateTime @default(now())
+}
+
+model PerformanceMetric {
+  id           String   @id @default(cuid())
+  testRunId    String
+  testRun      TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  p95LatencyMs Float
+  rps          Float
+  successRate  Float
   createdAt    DateTime @default(now())
 }
