@@ -9,8 +9,9 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 
 const PIPELINE_STEPS = [
-  'Security Scan',
-  'k8s Deployment',
+  'Container Sec',
+  'IaC Scanning',
+  'DAST Attack',
   'Load Testing',
   'Chaos Mesh'
 ];
