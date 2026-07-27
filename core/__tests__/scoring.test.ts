@@ -117,5 +117,23 @@ describe('Scoring Algorithms', () => {
       // 100 * 0.2 + 80 * 0.2 + 90 * 0.2 + 70 * 0.2 + 60 * 0.2 = 20 + 16 + 18 + 14 + 12 = 80
       expect(calculateMasterScore(100, 80, 90, 70, 60)).toBe(80);
     });
+
+    it('should generate high master score (>95) for hardened Alpine images', () => {
+      const security = 97;
+      const iac = 100;
+      const dast = 100;
+      const perf = 100;
+      const chaos = 100;
+      expect(calculateMasterScore(security, iac, dast, perf, chaos)).toBeGreaterThanOrEqual(95);
+    });
+
+    it('should generate low master score (<40) for vulnerable target images', () => {
+      const security = 0;
+      const iac = 35;
+      const dast = 0;
+      const perf = 0;
+      const chaos = 80.4;
+      expect(calculateMasterScore(security, iac, dast, perf, chaos)).toBeLessThan(40);
+    });
   });
 });
