@@ -1,68 +1,43 @@
-import { k8sAppsV1Api } from '../k8s/client';
-import { deleteNamespace } from '../k8s/namespace';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
- * Observes namespace recovery after chaos injection, or profiles RTO based on container readiness time.
+ * Observes container recovery after chaos injection and measures exact empirical RTO using a high-precision stopwatch.
  * 
- * @param namespace Target namespace
- * @param imageName Optional container image context for recovery profiling
+ * @param containerName Target sandbox container name
+ * @param targetUrl Target sandbox URL endpoint (e.g. 'http://localhost:54123')
+ * @returns Empirical RTO in seconds, or null if recovery failed
  */
-export async function observeRecovery(namespace: string, imageName: string = ''): Promise<number | null> {
-  console.log(`[Chaos Engine] Observing recovery window for ${imageName} in ${namespace}...`);
+export async function observeRecovery(containerName: string, targetUrl: string): Promise<number | null> {
+  console.log(`[Chaos Engine] Measuring real RTO stopwatch for ${containerName} at ${targetUrl}...`);
   
   const startTime = Date.now();
-  const maxObservationWindowMs = 120000;
-
+  
+  // Issue docker start to trigger container auto-recovery
   try {
-    while (Date.now() - startTime < maxObservationWindowMs) {
-      const response = await k8sAppsV1Api.readNamespacedDeployment({
-        name: 'target-deployment',
-        namespace
-      });
+    await execAsync(`docker start ${containerName}`, { timeout: 10000 });
+  } catch (e: any) {
+    console.warn(`[Chaos Engine] Container restart command warning: ${e.message}`);
+  }
 
-      const deployment = response;
-      const desiredReplicas = deployment.spec?.replicas || 1;
-      const readyReplicas = deployment.status?.readyReplicas || 0;
-
-      if (readyReplicas >= desiredReplicas) {
+  const timeoutMs = 30000;
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const res = await fetch(targetUrl, { signal: AbortSignal.timeout(1000) });
+      if (res.ok || res.status < 500) {
         const recoveryTimeMs = Date.now() - startTime;
         const rtoSeconds = parseFloat((recoveryTimeMs / 1000).toFixed(2));
-        console.log(`[Chaos Engine] Recovery successful. RTO: ${rtoSeconds}s`);
+        console.log(`[Chaos Engine] Container recovery successful! Empirical RTO: ${rtoSeconds}s.`);
         return rtoSeconds;
       }
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (e) {
+      // Container rebooting...
     }
-  } catch (error: any) {
-    console.warn(`[Chaos Engine] Kubernetes cluster API unavailable (${error.message}). Profiling dynamic container startup RTO...`);
-    return getDynamicRecoveryRTO(imageName);
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
 
-  return getDynamicRecoveryRTO(imageName);
-}
-
-/**
- * Generates dynamic Chaos Mesh Recovery Time Objective (RTO) metrics.
- */
-export function getDynamicRecoveryRTO(imageName: string): number {
-  const name = imageName.toLowerCase();
-
-  // Instant recovery microservices (Alpine, NGINX, Redis) -> ~1.2s RTO
-  if (name.includes('alpine') || name.includes('nginx') || name.includes('redis') || name.includes('scratch')) {
-    return 1.2;
-  }
-
-  // Slow / Unhealthy recovery targets (Juice Shop, bad-app) -> ~14.8s RTO
-  if (name.includes('juice-shop') || name.includes('vulnerable') || name.includes('webgoat') || name.includes('bad-app')) {
-    return 14.8;
-  }
-
-  // Standard container startup time (Node, Python, Ubuntu) -> ~3.6s RTO
-  return 3.6;
-}
-
-export async function cleanupTestEnvironment(namespace: string): Promise<void> {
-  console.log(`[Chaos Engine] Initiating cleanup for ${namespace}...`);
-  await deleteNamespace(namespace);
-  console.log(`[Chaos Engine] Cleanup complete.`);
+  console.warn(`[Chaos Engine] Container failed to recover within ${timeoutMs}ms observation window.`);
+  return null;
 }

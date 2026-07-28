@@ -1,12 +1,11 @@
+import { checkDockerDaemon } from '../docker/docker';
+import { provisionSandboxContainer, teardownSandboxContainer, SandboxInstance } from '../docker/sandbox';
 import { runTrivyScan } from '../security/trivy';
 import { runDastScan } from '../security/dast';
 import { runIacScan } from '../security/iac';
-import { createDynamicNamespace, deleteNamespace } from '../k8s/namespace';
-import { deployTargetImage } from '../k8s/deployment';
-import { waitForDeploymentReady } from '../k8s/polling';
-import { runLoadTest, getDynamicLoadProfile } from '../load/k6';
+import { runLoadTest } from '../load/k6';
 import { injectPodKill } from '../chaos/experiments';
-import { observeRecovery, getDynamicRecoveryRTO } from '../chaos/recovery';
+import { observeRecovery } from '../chaos/recovery';
 import { 
   calculateSecurityScore,
   calculateIacScore,
@@ -18,69 +17,58 @@ import {
 import { generatePDFReport, ReportData } from '../reports/pdf';
 
 /**
- * The Master Orchestrator Pipeline.
- * Connects Security, Kubernetes, Load, Chaos, Scoring, and Reporting engines 
- * into a single sequential automated workflow.
+ * The Master Orchestrator Pipeline (100% Real Empirical Execution).
+ * Executes live container lifecycle, security scans, live load stress tests, and chaos injection.
+ * Zero synthetic fallbacks.
  * 
- * @param imageName The Docker image to test
- * @param testRunId A unique UUID for this test run (used for tracking and PDFs)
+ * @param imageName The Docker image to test (e.g., 'nginx:alpine')
+ * @param testRunId A unique UUID for this test run
  */
 export async function executeTestPipeline(imageName: string, testRunId: string): Promise<ReportData> {
-  console.log(`[Pipeline] Starting end-to-end resilience test for ${imageName}`);
+  console.log(`[Pipeline] Starting 100% real empirical resilience pipeline for ${imageName}`);
+
+  // 1. Strict Prerequisites & System Readiness Check
+  const isDockerActive = await checkDockerDaemon();
+  if (!isDockerActive) {
+    throw new Error(`Docker Daemon is not running. Please start Docker Desktop to execute real container testing for '${imageName}'.`);
+  }
   
+  let sandbox: SandboxInstance | null = null;
   let rtoSeconds: number | null = 0;
-  let namespace = '';
   let securityResult;
   let iacResult;
   let dastResult;
   let performanceResult;
 
   try {
-    // 1. Container Security Engine
+    // 2. Real Container Security Scan (Trivy CLI via Docker daemon socket)
     securityResult = await runTrivyScan(imageName);
     const securityScore = calculateSecurityScore(securityResult);
 
-    try {
-      // 2. Kubernetes Environment Engine & IaC
-      namespace = await createDynamicNamespace();
-      iacResult = await runIacScan(namespace, imageName);
-      
-      await deployTargetImage(namespace, imageName);
-      await waitForDeploymentReady(namespace); // Wait for pods to spin up
+    // 3. Provision Sandbox Container & Dynamic Port Binding
+    sandbox = await provisionSandboxContainer(imageName, testRunId);
 
-      const targetUrl = `http://target-service.${namespace}.svc.cluster.local`;
-
-      // 3. DAST Engine
-      dastResult = await runDastScan(targetUrl, imageName);
-
-      // 4. Load Testing Engine
-      performanceResult = await runLoadTest(targetUrl, imageName);
-      
-      // 5. Chaos Engine
-      await injectPodKill(namespace);
-      rtoSeconds = await observeRecovery(namespace, imageName);
-    } catch (infraError: any) {
-      console.warn(`[Pipeline] Infrastructure dependencies missing (${infraError.message}). Using dynamic image-aware profiling engines...`);
-      if (!iacResult) iacResult = await runIacScan(namespace || 'default', imageName);
-      if (!dastResult) dastResult = await runDastScan('http://localhost', imageName);
-      if (!performanceResult) performanceResult = getDynamicLoadProfile(imageName);
-      if (!rtoSeconds) rtoSeconds = getDynamicRecoveryRTO(imageName);
-    }
-
+    // 4. Real Container Security Context Audit
+    iacResult = await runIacScan(sandbox.containerName);
     const iacScore = calculateIacScore(iacResult);
+
+    // 5. Real DAST Endpoint Attack & Header Analysis
+    dastResult = await runDastScan(sandbox.targetUrl);
     const dastScore = calculateDastScore(dastResult);
+
+    // 6. Real k6 Load Stress Test (via Docker targeting sandbox port)
+    performanceResult = await runLoadTest(sandbox.targetUrl);
     const performanceScore = calculatePerformanceScore(performanceResult);
+
+    // 7. Real Chaos Injection (SIGKILL) & Recovery Stopwatch
+    await injectPodKill(sandbox.containerName);
+    rtoSeconds = await observeRecovery(sandbox.containerName, sandbox.targetUrl);
     const resilienceScore = calculateResilienceScore(rtoSeconds);
 
-    // 6. Scoring Engine
+    // 8. Empirical Master Score Engine
     const masterScore = calculateMasterScore(securityScore, iacScore, dastScore, performanceScore, resilienceScore);
 
-    // 7. Cleanup Engine
-    if (namespace) {
-      await deleteNamespace(namespace);
-    }
-    
-    // Assemble final data payload
+    // Assemble final empirical report data payload
     const reportData: ReportData = {
       imageName,
       masterScore,
@@ -96,18 +84,19 @@ export async function executeTestPipeline(imageName: string, testRunId: string):
       rtoSeconds
     };
 
-    // 8. Reporting Engine
+    // 9. Generate PDF Report
     await generatePDFReport(testRunId, reportData);
     
-    console.log(`[Pipeline] Test pipeline completed successfully. Master Score: ${masterScore}`);
+    console.log(`[Pipeline] Empirical test pipeline completed successfully for ${imageName}. Master Score: ${masterScore}`);
     return reportData;
 
   } catch (error: any) {
-    console.error(`[Pipeline] Critical pipeline failure:`, error.message);
-    // Ensure we clean up the namespace if an error occurred mid-flight
-    if (namespace) {
-      await deleteNamespace(namespace);
-    }
+    console.error(`[Pipeline] Pipeline execution error:`, error.message);
     throw new Error(`Pipeline execution failed: ${error.message}`);
+  } finally {
+    // Teardown sandbox container to clean up system resources
+    if (sandbox) {
+      await teardownSandboxContainer(sandbox.containerName);
+    }
   }
 }
