@@ -27,16 +27,21 @@ export async function checkDockerDaemon(): Promise<boolean> {
 
 /**
  * Inspects a local or remote Docker container image and extracts metadata.
- * Automatically pulls remote images from Docker Hub if not present in local store.
+ * Automatically pulls remote images from Docker Hub with multi-architecture (amd64/arm64) support.
  */
 export async function inspectDockerImage(imageName: string): Promise<DockerImageInspect> {
   try {
-    // Check if image exists locally; if not, pull it from registry
+    // Check if image exists in local Docker store; if not, pull from registry
     try {
       await execAsync(`docker image inspect ${imageName}`, { timeout: 5000 });
     } catch (e) {
       console.log(`[Docker Engine] Image '${imageName}' not in local store. Pulling from registry...`);
-      await execAsync(`docker pull ${imageName}`, { maxBuffer: 20 * 1024 * 1024, timeout: 180000 });
+      try {
+        await execAsync(`docker pull ${imageName}`, { maxBuffer: 20 * 1024 * 1024, timeout: 180000 });
+      } catch (pullErr: any) {
+        console.log(`[Docker Engine] Native architecture pull failed. Retrying pull with linux/amd64 emulation...`);
+        await execAsync(`docker pull --platform=linux/amd64 ${imageName}`, { maxBuffer: 20 * 1024 * 1024, timeout: 180000 });
+      }
     }
 
     const { stdout } = await execAsync(`docker inspect ${imageName}`, { maxBuffer: 10 * 1024 * 1024, timeout: 15000 });
