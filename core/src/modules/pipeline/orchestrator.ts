@@ -19,9 +19,9 @@ import { generatePDFReport, ReportData } from '../reports/pdf';
 /**
  * The Master Orchestrator Pipeline (100% Real Empirical Execution).
  * Executes live container lifecycle, security scans, live load stress tests, and chaos injection.
- * Zero synthetic fallbacks.
+ * Supports Web Applications AND Non-Web / Background Worker containers cleanly.
  * 
- * @param imageName The Docker image to test (e.g., 'nginx:alpine')
+ * @param imageName The Docker image to test (e.g., 'nginx:alpine' or 'ashu804/slow-app')
  * @param testRunId A unique UUID for this test run
  */
 export async function executeTestPipeline(imageName: string, testRunId: string): Promise<ReportData> {
@@ -53,16 +53,16 @@ export async function executeTestPipeline(imageName: string, testRunId: string):
     const iacScore = calculateIacScore(iacResult);
 
     // 5. Real DAST Endpoint Attack & Header Analysis
-    dastResult = await runDastScan(sandbox.targetUrl);
+    dastResult = await runDastScan(sandbox.targetUrl, sandbox.isHttpServer);
     const dastScore = calculateDastScore(dastResult);
 
     // 6. Real k6 Load Stress Test (via Docker targeting sandbox port)
-    performanceResult = await runLoadTest(sandbox.targetUrl);
+    performanceResult = await runLoadTest(sandbox.targetUrl, sandbox.isHttpServer);
     const performanceScore = calculatePerformanceScore(performanceResult);
 
     // 7. Real Chaos Injection (SIGKILL) & Recovery Stopwatch
     await injectPodKill(sandbox.containerName);
-    rtoSeconds = await observeRecovery(sandbox.containerName, sandbox.targetUrl);
+    rtoSeconds = await observeRecovery(sandbox.containerName, sandbox.targetUrl, sandbox.isHttpServer);
     const resilienceScore = calculateResilienceScore(rtoSeconds);
 
     // 8. Empirical Master Score Engine

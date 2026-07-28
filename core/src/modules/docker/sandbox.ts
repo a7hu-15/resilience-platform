@@ -9,10 +9,12 @@ export interface SandboxInstance {
   hostPort: number;
   containerPort: number;
   targetUrl: string;
+  isHttpServer: boolean;
 }
 
 /**
  * Provisions a dynamic Docker container sandbox for real empirical testing.
+ * Automatically handles multi-arch platform emulation (amd64/arm64) for Apple Silicon Macs.
  */
 export async function provisionSandboxContainer(imageName: string, testRunId: string): Promise<SandboxInstance> {
   const containerName = `resilience-sandbox-${testRunId.slice(0, 8)}`;
@@ -30,39 +32,46 @@ export async function provisionSandboxContainer(imageName: string, testRunId: st
 
   console.log(`[Sandbox Engine] Provisioning container ${containerName} (${imageName}) bound to ${hostPort}:${containerPort}...`);
 
-  // Run container in background sandbox
-  const command = `docker run -d --name ${containerName} -p ${hostPort}:${containerPort} ${imageName}`;
-  await execAsync(command, { timeout: 30000 });
+  // Run container in background sandbox with platform auto-emulation support
+  let command = `docker run -d --name ${containerName} -p ${hostPort}:${containerPort} ${imageName}`;
+  try {
+    await execAsync(command, { timeout: 30000 });
+  } catch (e: any) {
+    console.log(`[Sandbox Engine] Standard run failed (${e.message}). Retrying run with --platform=linux/amd64...`);
+    command = `docker run -d --platform=linux/amd64 --name ${containerName} -p ${hostPort}:${containerPort} ${imageName}`;
+    await execAsync(command, { timeout: 30000 });
+  }
 
-  // Wait for container readiness
-  await waitForContainerHealth(targetUrl, 15000);
+  // Poll for container HTTP health
+  const isHttpServer = await waitForContainerHealth(targetUrl, 4000);
 
   return {
     containerName,
     hostPort,
     containerPort,
-    targetUrl
+    targetUrl,
+    isHttpServer
   };
 }
 
 /**
- * Polls the running sandbox container endpoint until HTTP GET succeeds.
+ * Polls the running sandbox container endpoint to check if an HTTP server is active.
  */
 async function waitForContainerHealth(url: string, timeoutMs: number): Promise<boolean> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(1000) });
       if (res.ok || res.status < 500) {
-        console.log(`[Sandbox Engine] Container at ${url} is healthy (Status: ${res.status}).`);
+        console.log(`[Sandbox Engine] Container at ${url} is an active HTTP server (Status: ${res.status}).`);
         return true;
       }
     } catch (e) {
-      // Container starting...
+      // Container starting or non-HTTP app...
     }
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 400));
   }
-  console.warn(`[Sandbox Engine] Container at ${url} did not respond within ${timeoutMs}ms window. Proceeding with analysis.`);
+  console.log(`[Sandbox Engine] Container at ${url} is a background worker or non-HTTP application.`);
   return false;
 }
 

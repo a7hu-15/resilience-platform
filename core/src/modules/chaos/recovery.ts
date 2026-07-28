@@ -5,13 +5,15 @@ const execAsync = promisify(exec);
 
 /**
  * Observes container recovery after chaos injection and measures exact empirical RTO using a high-precision stopwatch.
+ * Handles both HTTP Web Applications and Background Worker applications cleanly.
  * 
  * @param containerName Target sandbox container name
- * @param targetUrl Target sandbox URL endpoint (e.g. 'http://localhost:54123')
+ * @param targetUrl Target sandbox URL endpoint
+ * @param isHttpServer Whether target is an active HTTP server
  * @returns Empirical RTO in seconds, or null if recovery failed
  */
-export async function observeRecovery(containerName: string, targetUrl: string): Promise<number | null> {
-  console.log(`[Chaos Engine] Measuring real RTO stopwatch for ${containerName} at ${targetUrl}...`);
+export async function observeRecovery(containerName: string, targetUrl: string, isHttpServer: boolean = true): Promise<number | null> {
+  console.log(`[Chaos Engine] Measuring real RTO stopwatch for ${containerName}...`);
   
   const startTime = Date.now();
   
@@ -24,16 +26,31 @@ export async function observeRecovery(containerName: string, targetUrl: string):
 
   const timeoutMs = 30000;
   while (Date.now() - startTime < timeoutMs) {
-    try {
-      const res = await fetch(targetUrl, { signal: AbortSignal.timeout(1000) });
-      if (res.ok || res.status < 500) {
-        const recoveryTimeMs = Date.now() - startTime;
-        const rtoSeconds = parseFloat((recoveryTimeMs / 1000).toFixed(2));
-        console.log(`[Chaos Engine] Container recovery successful! Empirical RTO: ${rtoSeconds}s.`);
-        return rtoSeconds;
+    if (isHttpServer) {
+      try {
+        const res = await fetch(targetUrl, { signal: AbortSignal.timeout(1000) });
+        if (res.ok || res.status < 500) {
+          const recoveryTimeMs = Date.now() - startTime;
+          const rtoSeconds = parseFloat((recoveryTimeMs / 1000).toFixed(2));
+          console.log(`[Chaos Engine] Container HTTP recovery successful! Empirical RTO: ${rtoSeconds}s.`);
+          return rtoSeconds;
+        }
+      } catch (e) {
+        // Rebooting...
       }
-    } catch (e) {
-      // Container rebooting...
+    } else {
+      // For non-HTTP background workers, poll Docker process state directly
+      try {
+        const { stdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerName}`, { timeout: 2000 });
+        if (stdout.trim() === 'true') {
+          const recoveryTimeMs = Date.now() - startTime;
+          const rtoSeconds = parseFloat((recoveryTimeMs / 1000).toFixed(2));
+          console.log(`[Chaos Engine] Process state recovery successful! Empirical RTO: ${rtoSeconds}s.`);
+          return rtoSeconds;
+        }
+      } catch (e) {
+        // Rebooting...
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
