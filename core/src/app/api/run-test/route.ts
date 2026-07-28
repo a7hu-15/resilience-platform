@@ -153,10 +153,11 @@ export async function POST(request: Request) {
       })
       .catch(async (error) => {
         // 6. Update Prisma on Failure
-        console.error(`Pipeline Failed for ${testRunId}:`, error);
+        const errorMsg = error?.message || 'Pipeline execution error';
+        console.error(`Pipeline Failed for ${testRunId}:`, errorMsg);
         await prisma.testRun.update({
           where: { id: testRunId },
-          data: { status: 'FAILED' }
+          data: { status: `FAILED: ${errorMsg}` }
         });
       });
 

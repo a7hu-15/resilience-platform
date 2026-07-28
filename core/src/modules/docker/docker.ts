@@ -27,10 +27,18 @@ export async function checkDockerDaemon(): Promise<boolean> {
 
 /**
  * Inspects a local or remote Docker container image and extracts metadata.
+ * Automatically pulls remote images from Docker Hub if not present in local store.
  */
 export async function inspectDockerImage(imageName: string): Promise<DockerImageInspect> {
   try {
-    // Try inspecting image locally first
+    // Check if image exists locally; if not, pull it from registry
+    try {
+      await execAsync(`docker image inspect ${imageName}`, { timeout: 5000 });
+    } catch (e) {
+      console.log(`[Docker Engine] Image '${imageName}' not in local store. Pulling from registry...`);
+      await execAsync(`docker pull ${imageName}`, { maxBuffer: 20 * 1024 * 1024, timeout: 180000 });
+    }
+
     const { stdout } = await execAsync(`docker inspect ${imageName}`, { maxBuffer: 10 * 1024 * 1024, timeout: 15000 });
     const data = JSON.parse(stdout)[0];
 
@@ -45,7 +53,8 @@ export async function inspectDockerImage(imageName: string): Promise<DockerImage
       env: data.Config?.Env || []
     };
   } catch (error: any) {
-    throw new Error(`Failed to inspect image '${imageName}'. Ensure image exists and Docker is running.`);
+    console.error(`[Docker Engine] Failed to inspect image '${imageName}': ${error.message}`);
+    throw new Error(`Failed to inspect image '${imageName}'. Ensure Docker is running and image name is valid.`);
   }
 }
 

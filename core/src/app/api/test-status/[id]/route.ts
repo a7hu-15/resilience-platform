@@ -56,6 +56,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Test run not found' }, { status: 404 });
     }
 
+    if (testRun.status.startsWith('FAILED')) {
+      const parts = testRun.status.split('FAILED: ');
+      return NextResponse.json({
+        status: 'FAILED',
+        error: parts[1] || 'Pipeline execution failed'
+      });
+    }
+
     return NextResponse.json({ status: testRun.status });
   } catch (error: any) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

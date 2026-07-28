@@ -96,8 +96,7 @@ export default function Dashboard() {
             } else if (data.status === 'FAILED') {
               clearInterval(interval);
               clearInterval(stepInterval);
-              addLog('❌ Pipeline failed during execution (Is Docker/Kubernetes running?).');
-              // We do not set isRunning to false here so the terminal stays visible for the user to read.
+              addLog(`❌ Pipeline failed: ${data.error || 'Ensure Docker Desktop is running and image exists.'}`);
               setCurrentStep(PIPELINE_STEPS.length); // stop the spinner
             } else {
               addLog('Executing backend engine diagnostics...');
