@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import styles from './results.module.css';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
+import { MetricsChart } from '../../../components/ui/MetricsChart';
 import { SecurityTab } from './components/SecurityTab';
 import { IacTab } from './components/IacTab';
 import { DastTab } from './components/DastTab';
@@ -164,6 +165,20 @@ export default function Results() {
                 </div>
                 <p style={{color: 'var(--text-secondary)'}}>Chaos Mesh RTO recovery.</p>
               </Card>
+            </div>
+
+            <div style={{ marginTop: '2rem' }}>
+              <MetricsChart 
+                data={{
+                  securityScore: data.securityScore || 0,
+                  iacScore: data.iacScore || 0,
+                  dastScore: data.dastScore || 0,
+                  performanceScore: data.performanceScore || 0,
+                  resilienceScore: data.resilienceScore || 0,
+                  masterScore: data.masterScore || 0,
+                  qualityGatePassed: data.qualityGatePassed ?? (data.masterScore >= 70)
+                }} 
+              />
             </div>
           </>
         )}
