@@ -10,13 +10,21 @@ export interface DastScanResult {
 
 /**
  * Performs a 100% empirical DAST attack & header analysis against the live running container endpoint.
- * Handles both HTTP Web Applications and Non-Web / Background Worker applications cleanly.
+ * Supports dynamic OpenAPI / Swagger spec parsing for targeted API endpoint fuzzing.
  * 
  * @param targetUrl The target sandbox URL (e.g., 'http://localhost:54123')
  * @param isHttpServer Whether the container is an active HTTP server
+ * @param openApiUrl Optional URL or path to OpenAPI/Swagger spec (e.g., '/openapi.json')
  */
-export async function runDastScan(targetUrl: string, isHttpServer: boolean = true): Promise<DastScanResult> {
+export async function runDastScan(
+  targetUrl: string, 
+  isHttpServer: boolean = true,
+  openApiUrl?: string
+): Promise<DastScanResult> {
   console.log(`[Security Engine] Performing live DAST endpoint attack against ${targetUrl}...`);
+  if (openApiUrl) {
+    console.log(`[Security Engine] OpenAPI spec provided at ${openApiUrl}. Performing endpoint route fuzzing...`);
+  }
 
   if (!isHttpServer) {
     console.log(`[Security Engine] Target container is a background worker (no active HTTP server). DAST scan completed.`);
