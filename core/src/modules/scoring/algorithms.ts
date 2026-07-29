@@ -124,3 +124,61 @@ export function calculateMasterScore(
 
   return parseFloat(masterScore.toFixed(2));
 }
+
+export interface QualityGateConfig {
+  maxCriticalCVEs?: number;      // e.g. 0
+  maxHighCVEs?: number;          // e.g. 2
+  maxP95LatencyMs?: number;      // e.g. 500
+  minSuccessRate?: number;       // e.g. 99
+  maxRtoSeconds?: number;        // e.g. 15
+  minMasterScore?: number;       // e.g. 80
+}
+
+export interface QualityGateResult {
+  passed: boolean;
+  reasons: string[];
+}
+
+/**
+ * Evaluates test metrics against user-configured Quality Gate SLO thresholds.
+ */
+export function evaluateQualityGate(
+  security: TrivyScanResult,
+  load: LoadTestResult,
+  rtoSeconds: number | null,
+  masterScore: number,
+  config?: QualityGateConfig
+): QualityGateResult {
+  const activeConfig: QualityGateConfig = config || {
+    maxCriticalCVEs: 0,
+    minMasterScore: 70,
+    maxP95LatencyMs: 1000,
+    maxRtoSeconds: 30
+  };
+
+  const reasons: string[] = [];
+
+  if (activeConfig.maxCriticalCVEs !== undefined && security.critical > activeConfig.maxCriticalCVEs) {
+    reasons.push(`Critical CVEs (${security.critical}) exceeded threshold of ${activeConfig.maxCriticalCVEs}`);
+  }
+  if (activeConfig.maxHighCVEs !== undefined && security.high > activeConfig.maxHighCVEs) {
+    reasons.push(`High CVEs (${security.high}) exceeded threshold of ${activeConfig.maxHighCVEs}`);
+  }
+  if (activeConfig.maxP95LatencyMs !== undefined && load.p95LatencyMs > activeConfig.maxP95LatencyMs) {
+    reasons.push(`P95 Latency (${load.p95LatencyMs}ms) exceeded threshold of ${activeConfig.maxP95LatencyMs}ms`);
+  }
+  if (activeConfig.minSuccessRate !== undefined && load.successRate < activeConfig.minSuccessRate) {
+    reasons.push(`Success Rate (${load.successRate}%) below threshold of ${activeConfig.minSuccessRate}%`);
+  }
+  if (activeConfig.maxRtoSeconds !== undefined && rtoSeconds !== null && rtoSeconds > activeConfig.maxRtoSeconds) {
+    reasons.push(`Recovery RTO (${rtoSeconds}s) exceeded threshold of ${activeConfig.maxRtoSeconds}s`);
+  }
+  if (activeConfig.minMasterScore !== undefined && masterScore < activeConfig.minMasterScore) {
+    reasons.push(`Master Score (${masterScore}) fell below minimum required score of ${activeConfig.minMasterScore}`);
+  }
+
+  return {
+    passed: reasons.length === 0,
+    reasons
+  };
+}

@@ -30,13 +30,38 @@ model TestRun {
   iacScore         Float?
   performanceScore Float?
   resilienceScore  Float?
+  qualityGatePassed Boolean?
+  qualityGateConfig String?
+  loadConfig        String?
   securityLogs     SecurityLog[]
+  sbomLogs         SbomLog[]
+  secretLogs       SecretLog[]
   dastLogs         DastLog[]
   iacLogs          IacLog[]
   performanceMetrics PerformanceMetric[]
   chaosMetrics     ChaosMetric[]
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
+}
+
+model SbomLog {
+  id           String   @id @default(cuid())
+  testRunId    String
+  testRun      TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  totalPackages Int     @default(0)
+  format       String   @default("CycloneDX")
+  reportJson   String
+  createdAt    DateTime @default(now())
+}
+
+model SecretLog {
+  id           String   @id @default(cuid())
+  testRunId    String
+  testRun      TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  secretsCount Int      @default(0)
+  licenseIssuesCount Int @default(0)
+  reportJson   String
+  createdAt    DateTime @default(now())
 }
 
 model SecurityLog {

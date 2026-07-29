@@ -3,6 +3,14 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+export interface LoadConfig {
+  virtualUsers?: number;       // Default: 10
+  durationSeconds?: number;    // Default: 5
+  rampUp?: boolean;            // Enable ramp-up stages
+  customHeaders?: Record<string, string>;
+  targetPath?: string;         // Default: '/'
+}
+
 export interface LoadTestResult {
   p95LatencyMs: number;
   requestsPerSecond: number;
@@ -15,8 +23,13 @@ export interface LoadTestResult {
  * 
  * @param targetUrl The host URL of the running container sandbox
  * @param isHttpServer Whether the target container is an active HTTP server
+ * @param config Optional load test options (VUs, duration, rampUp, headers)
  */
-export async function runLoadTest(targetUrl: string, isHttpServer: boolean = true): Promise<LoadTestResult> {
+export async function runLoadTest(
+  targetUrl: string, 
+  isHttpServer: boolean = true,
+  config: LoadConfig = {}
+): Promise<LoadTestResult> {
   console.log(`[Load Engine] Executing live k6 load test against ${targetUrl}...`);
 
   if (!isHttpServer) {
@@ -29,29 +42,53 @@ export async function runLoadTest(targetUrl: string, isHttpServer: boolean = tru
     };
   }
 
+  const vus = config.virtualUsers || 10;
+  const durationSecs = config.durationSeconds || 5;
+  const path = config.targetPath || '/';
+
   // Target host.docker.internal for Mac/Windows Docker networking if localhost is targeted
-  const dockerTargetUrl = targetUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal');
+  const dockerTargetUrl = targetUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal') + path;
+
+  const headerObj = config.customHeaders ? JSON.stringify(config.customHeaders) : '{}';
+
+  let optionsBlock = `
+    export const options = {
+      vus: ${vus},
+      duration: '${durationSecs}s',
+    };
+  `;
+
+  if (config.rampUp) {
+    const rampTarget = Math.max(1, Math.floor(vus / 2));
+    optionsBlock = `
+      export const options = {
+        stages: [
+          { duration: '2s', target: ${rampTarget} },
+          { duration: '${Math.max(1, durationSecs - 3)}s', target: ${vus} },
+          { duration: '1s', target: 0 }
+        ]
+      };
+    `;
+  }
 
   const k6Script = `
     import http from 'k6/http';
     import { sleep } from 'k6';
 
-    export const options = {
-      vus: 10,
-      duration: '5s',
-    };
+    ${optionsBlock}
 
     export default function () {
-      http.get('${dockerTargetUrl}');
+      const params = { headers: ${headerObj} };
+      http.get('${dockerTargetUrl}', params);
       sleep(0.05);
     }
   `;
 
   try {
-    const command = `echo "${k6Script}" | docker run --rm -i --add-host=host.docker.internal:host-gateway grafana/k6 run --out json=- -`;
-    const { stdout } = await execAsync(command, { maxBuffer: 15 * 1024 * 1024, timeout: 25000 });
+    const command = `echo "${k6Script.replace(/"/g, '\\"')}" | docker run --rm -i --add-host=host.docker.internal:host-gateway grafana/k6 run --out json=- -`;
+    const { stdout } = await execAsync(command, { maxBuffer: 15 * 1024 * 1024, timeout: (durationSecs + 20) * 1000 });
 
-    return parseK6Results(stdout);
+    return parseK6Results(stdout, durationSecs);
   } catch (error: any) {
     console.warn(`[Load Engine] Live k6 load test failed (${error.message}). Returning worker profile.`);
     return {
@@ -66,12 +103,12 @@ export async function runLoadTest(targetUrl: string, isHttpServer: boolean = tru
 /**
  * Parses JSON stream output from k6 to calculate empirical P95 latency, RPS, and success rate.
  */
-function parseK6Results(stdout: string): LoadTestResult {
+function parseK6Results(stdout: string, durationSecs: number = 5): LoadTestResult {
   const lines = stdout.split('\n').filter(line => line.trim().length > 0);
   let totalRequests = 0;
   let failedRequests = 0;
   const latencies: number[] = [];
-  const testDurationSecs = 5;
+  const testDurationSecs = durationSecs || 5;
 
   for (const line of lines) {
     try {
