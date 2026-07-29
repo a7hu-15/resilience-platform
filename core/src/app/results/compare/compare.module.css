@@ -1,0 +1,91 @@
+.page {
+  min-height: 100vh;
+  background-color: #0b0f19;
+  color: #f8fafc;
+  padding: 2rem;
+  font-family: inherit;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.subtitle {
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.runCard {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.runTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+}
+
+.scoreBadge {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #38bdf8;
+  margin-bottom: 1rem;
+}
+
+.deltaContainer {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.deltaRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.deltaRow:last-child {
+  border-bottom: none;
+}
+
+.positiveDelta {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.negativeDelta {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.neutralDelta {
+  color: #94a3b8;
+}
