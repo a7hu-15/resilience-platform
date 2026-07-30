@@ -14,7 +14,10 @@ describe('Queue Manager & Webhook Notifications', () => {
   });
 
   it('should handle webhook notification dispatch gracefully', async () => {
-    const success = await sendWebhookNotification('https://httpbin.org/post', {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+
+    const success = await sendWebhookNotification('https://hooks.slack.com/services/mock', {
       testRunId: 'run-789',
       imageName: 'nginx:alpine',
       masterScore: 92,
@@ -24,5 +27,8 @@ describe('Queue Manager & Webhook Notifications', () => {
       resilienceScore: 91
     });
     expect(typeof success).toBe('boolean');
+    expect(success).toBe(true);
+
+    global.fetch = originalFetch;
   });
 });
