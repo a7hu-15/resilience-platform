@@ -1,93 +1,133 @@
-# All-In-One DevOps Testing Platform
+# 🚀 Resilience Platform — Automated Security, Load & Chaos Engineering
 
-A world-class, automated CI/CD testing platform that accepts any Docker image, dynamically deploys it to Kubernetes, and executes a rigorous 3-pillar test suite: **Security (Trivy)**, **Performance (k6)**, and **Resilience (Chaos Mesh)**. The platform calculates a highly precise master score based on real metrics and generates a final PDF report.
+A full-stack, enterprise-grade automated CI/CD security, performance, and chaos resilience testing platform built with Next.js, Prisma, Trivy, k6, and Docker.
+
+Submit any Docker image (public or private), and the platform will dynamically execute end-to-end security audits, k6 load testing, and multi-fault chaos injection, rendering real-time interactive telemetry and multi-format report exports (SARIF, JUnit XML, PDF).
 
 **Developer:** Ashutosh Chaudhary  
 **GitHub:** [a7hu-15/resilience-platform](https://github.com/a7hu-15/resilience-platform)  
-**Stack:** Next.js (App Router) · TypeScript · Node.js · Kubernetes · Chaos Mesh · Prisma (SQLite/PostgreSQL) · Trivy · k6  
+**Stack:** Next.js (App Router) · TypeScript · Prisma (SQLite / PostgreSQL) · Trivy · k6 · Recharts · NextAuth
 
 ---
 
-## 🚀 The 7-Day Development Roadmap
+## 🗺️ Key Features & Architecture
 
-This platform is currently undergoing a massive architectural rewrite from a legacy Python/Flask application into a **Next.js Full-Stack Monolith** adhering to strict Enterprise standards (Separation of Concerns, modular architecture, and production-grade security).
+### 🛡️ 1. Security & Vulnerability Engine
+* **CVE Security Scanning**: Scans container layers via Trivy for OS and language package vulnerabilities.
+* **CycloneDX SBOM Generation**: Produces a complete Software Bill of Materials.
+* **Secret & License Leak Audit**: Identifies hardcoded API keys, tokens, SSH keys, and license non-compliance.
+* **OpenAPI / Swagger DAST Fuzzing**: Executes dynamic HTTP endpoint security tests against API specifications.
 
-### ✅ Day 1: Monolithic Setup & Database
-- Scaffolding the Next.js App Router codebase.
-- Implementing a feature-driven, modular folder structure (`src/modules`).
-- Installing `@kubernetes/client-node` and Prisma ORM.
-- Designing the database schema for `TestRuns`, `SecurityLogs`, and `ChaosMetrics`.
+### ⚡ 2. Performance & Load Stress Engine
+* **k6 Virtual User Profiles**: Runs dynamic k6 load test scripts with customizable ramp-up stages.
+* **Latency Percentiles & Throughput**: Tracks Requests Per Second (RPS), Error Rates, and latency metrics (P50, P90, P95, P99).
+* **Quality Gate SLO Evaluation**: Calculates PASS / FAIL status against predefined SLO rules (e.g., P95 < 500ms).
 
-### ✅ Day 2: Security & Deployment Engines
-- Implementing programmatic Trivy scanning to extract real CVE JSON data.
-- Building the dynamic Kubernetes Deployment/Service generator.
+### 💥 3. Multi-Fault Chaos Engineering Engine
+* **SIGKILL Recovery Test**: Abruptly terminates container processes to measure **Recovery Time Objective (RTO)**.
+* **Network Chaos**: Injects simulated network latency and packet loss to verify retry logic and timeout handling.
+* **Resource Stress Chaos**: Saturates CPU and memory to evaluate performance under high resource contention.
 
-### ✅ Day 3: Load Testing & Chaos Engineering Engines
-- Implementing k6 load testing for P95 latency and RPS metrics.
-- Orchestrating Chaos Mesh CRDs (PodKill, CPU Stress) dynamically via API.
+### 📊 4. Interactive Dashboard & Comparative Analytics
+* **Real-Time Terminal**: SSE log streaming and visual step animations during pipeline execution.
+* **Side-by-Side Comparison**: Compare score deltas, latency regressions, and CVE differences between image tags (`/results/compare`).
+* **Multi-Format Exports**: Download results in SARIF (GitHub Code Scanning), JUnit XML (CI/CD), or PDF report formats.
 
-### ✅ Day 4: Precise Scoring System & Real Reporting
-- Building algorithms to translate raw RTO (Recovery Time Objective) and CVE data into a precise 0-100 score.
-- Implementing PDF report generation.
-
-### ✅ Day 5: Backend Integration & Platform Self-Testing
-- Connecting the 4 engines (Security, Deploy, Load, Chaos) into a seamless pipeline.
-- Running Unit & Integration tests against known mock Docker images.
-
-### ✅ Day 6: Premium UI & Real-Time Dashboard
-- Building a stunning, premium UI with Vanilla CSS and micro-animations.
-- Implementing Live Server-Sent Events (SSE) so users can watch their tests execute in real-time.
-
-### ✅ Day 7: Final Polish & Deployment Prep
-- End-to-End User Journey Testing using Playwright.
-- Preparing production manifests to deploy the platform itself onto AWS EKS.
+### 🔒 5. Enterprise Integrations & Private Registries
+* **Private Container Registries**: Authenticate against `ghcr.io`, AWS ECR, or private Docker Hub repos.
+* **Slack / Discord Webhooks**: Dispatch automated completion alert cards directly to team channels.
 
 ---
 
-## 🏗️ Architecture (In Progress)
-
-This platform utilizes a strictly enforced, feature-driven Monolithic Architecture:
+## 📁 Repository Structure
 
 ```text
 resilience-platform/
-└── core/
-    ├── prisma/               # Database schemas and migrations
+├── .github/                  # GitHub Actions CI/CD workflows
+├── ROADMAP.md                # 2-Phase Enhancement & Feature Roadmap
+├── README.md                 # Primary project documentation
+└── core/                     # Full-Stack Next.js Application Monolith
+    ├── prisma/               # Prisma Database Schema & Migrations
+    ├── public/               # Static assets & PDF report output directory
+    ├── e2e/                  # Playwright End-to-End User Journey tests
+    ├── k8s/                  # Kubernetes Deployment Manifests & Helm Chart
+    ├── __tests__/            # Jest Unit & Integration Test Suites
     └── src/
-        ├── app/              # Next.js UI & API Routes
-        ├── config/           # Environment configuration
-        ├── db/               # Prisma Database connection
-        ├── middleware/       # API Security
-        └── modules/          # Core Business Logic Engines
-            ├── auth/         # JWT Authentication
-            ├── chaos/        # Chaos Mesh Orchestrator
-            ├── k8s/          # Kubernetes API Client
-            ├── load/         # k6 Load Testing Trigger
-            ├── reports/      # PDF Generator
-            ├── scoring/      # Scoring Algorithms
-            └── security/     # Trivy Scanning Logic
+        ├── app/              # Next.js App Router (Pages, Layouts & API Routes)
+        │   ├── (auth)/       # Authentication (Login / Register)
+        │   ├── api/          # REST API Endpoints (Run-Test, Exports, Status, Swagger)
+        │   └── results/      # Scan Results & Side-by-Side Comparison Views
+        ├── components/       # Reusable UI Components (Buttons, Cards, Inputs, Charts)
+        ├── config/           # OpenAPI / Swagger Documentation Specs
+        ├── db/               # Prisma Database Client Client Instance
+        └── modules/          # Core Business Engines
+            ├── chaos/        # SIGKILL, Network & Stress Chaos Experiments
+            ├── docker/       # Sandbox Container Provisioner & Port Binder
+            ├── load/         # k6 Load Testing Trigger & Script Generator
+            ├── notifications/# Email & Slack/Discord Webhook Alert Engines
+            ├── pipeline/     # Master Pipeline Orchestrator
+            ├── queue/        # BullMQ & Redis Background Job Queue Manager
+            ├── reports/      # PDF, SARIF & JUnit XML Export Generator
+            ├── scoring/      # Master Resilience & SLO Scoring Algorithms
+            └── security/     # Trivy SBOM, Secret Scan & OpenAPI DAST Fuzzer
 ```
 
-## ⚙️ Environment Variables
+---
 
-Copy the `.env.example` file to `.env` and configure the following for your environment:
+## 🔒 Security & Privacy Audit
 
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/resilience_db"
-KUBECONFIG_PATH="~/.kube/config"
-NEXT_PUBLIC_API_URL="http://localhost:3000/api"
-```
+> [!IMPORTANT]
+> **Zero Credentials or Passwords Committed**:
+> - All sensitive environment variables, secrets, and database credentials are strictly excluded via `.gitignore`.
+> - Real environment variables are loaded via `.env` (copy from `.env.example`).
+> - Passwords in the database are hashed using **bcryptjs**.
 
-## 🚢 How to Deploy (Kubernetes)
+---
 
-The platform is designed to be self-hosted on a Kubernetes cluster. Standard manifests are provided in the `core/k8s/` directory.
+## 🚀 Quickstart & Local Setup
 
+### 1. Install Dependencies
 ```bash
-# Deploy the Resilience Platform
-kubectl apply -f core/k8s/platform-deployment.yaml
-
-# Expose the Platform
-kubectl apply -f core/k8s/platform-service.yaml
+cd core
+npm install
 ```
+
+### 2. Configure Environment Variables
+```bash
+cp .env.example .env
+```
+
+### 3. Initialize Database
+```bash
+npx prisma db push
+```
+
+### 4. Run Development Server
+```bash
+npm run dev
+```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+### 5. Run Tests
+```bash
+# Run unit tests
+npm test
+
+# Run E2E Playwright tests
+npx playwright test
+```
+
+---
+
+## 🌐 Deploying on Vercel
+
+1. Push your repository to GitHub.
+2. Connect your repository to **Vercel**.
+3. Set the **Root Directory** setting to `core`.
+4. Configure environment variables in Vercel settings (`NEXTAUTH_SECRET`, `NEXTAUTH_URL`).
+5. Deploy!
+
+---
 
 ## 📝 License
-MIT — Built for learning, portfolio, and deep DevOps exploration.
+MIT License.
