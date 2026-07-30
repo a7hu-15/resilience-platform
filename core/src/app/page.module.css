@@ -39,6 +39,67 @@
   gap: 1.5rem;
 }
 
+.presetContainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.presetBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #a7f3d0;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: monospace;
+}
+
+.presetBtn:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: white;
+}
+
+.advancedToggle {
+  background: transparent;
+  border: none;
+  color: var(--accent-cyan, #06b6d4);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+  text-align: left;
+}
+
+.advancedToggle:hover {
+  text-decoration: underline;
+}
+
+.advancedPanel {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.gridForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
 /* Pipeline Stepper */
 .stepperContainer {
   display: flex;

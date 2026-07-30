@@ -64,6 +64,20 @@ export async function inspectDockerImage(imageName: string): Promise<DockerImage
 }
 
 /**
+ * Authenticates against a container registry (Docker Hub, ghcr.io, ECR) using username and password/token.
+ */
+export async function dockerLogin(user: string, token: string): Promise<boolean> {
+  try {
+    console.log(`[Docker Engine] Authenticating container registry for user '${user}'...`);
+    await execAsync(`echo "${token}" | docker login --username "${user}" --password-stdin`, { timeout: 15000 });
+    return true;
+  } catch (error: any) {
+    console.warn(`[Docker Engine] Registry login warning: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Finds an available random host port for dynamic container sandbox binding.
  */
 export async function findFreeHostPort(): Promise<number> {

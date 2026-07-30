@@ -19,11 +19,24 @@ const PIPELINE_STEPS = [
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const [image, setImage] = useState('');
+  const [registryUser, setRegistryUser] = useState('');
+  const [registryToken, setRegistryToken] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<{ time: string; msg: string }[]>([]);
   const [currentStep, setCurrentStep] = useState(-1);
   const router = useRouter();
   const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  const PRESETS = [
+    'nginx:alpine',
+    'node:18-alpine',
+    'redis:alpine',
+    'python:3.11-slim',
+    'ghcr.io/sample/app:latest'
+  ];
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -53,7 +66,12 @@ export default function Dashboard() {
       const res = await fetch('/api/run-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageName: image })
+        body: JSON.stringify({ 
+          imageName: image,
+          registryUser: registryUser.trim() || undefined,
+          registryToken: registryToken.trim() || undefined,
+          webhookUrl: webhookUrl.trim() || undefined
+        })
       });
 
       if (!res.ok) {
@@ -66,8 +84,6 @@ export default function Dashboard() {
       const { testRunId } = await res.json();
       addLog(`Pipeline started (ID: ${testRunId}). Awaiting logs...`);
 
-      // Mocking step progression for UI visual trust
-      // In a real scenario, this would be driven by WebSocket or polling specific phase endpoints
       let simulatedStep = 0;
       const stepInterval = setInterval(() => {
         simulatedStep++;
@@ -77,9 +93,8 @@ export default function Dashboard() {
         } else {
           clearInterval(stepInterval);
         }
-      }, 4000); // Progress a step every 4s
+      }, 4000);
 
-      // Poll for overall status
       const interval = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/test-status/${testRunId}`);
@@ -88,7 +103,7 @@ export default function Dashboard() {
             if (data.status === 'COMPLETED') {
               clearInterval(interval);
               clearInterval(stepInterval);
-              setCurrentStep(PIPELINE_STEPS.length); // All done
+              setCurrentStep(PIPELINE_STEPS.length);
               addLog('Pipeline completed successfully. Redirecting to results...');
               setTimeout(() => {
                 router.push(`/results/${testRunId}`);
@@ -97,7 +112,7 @@ export default function Dashboard() {
               clearInterval(interval);
               clearInterval(stepInterval);
               addLog(`❌ Pipeline failed: ${data.error || 'Ensure Docker Desktop is running and image exists.'}`);
-              setCurrentStep(PIPELINE_STEPS.length); // stop the spinner
+              setCurrentStep(PIPELINE_STEPS.length);
             } else {
               addLog('Executing backend engine diagnostics...');
             }
@@ -134,12 +149,72 @@ export default function Dashboard() {
           <Card>
             <form className={styles.form} onSubmit={startTest}>
               <Input 
-                placeholder="Enter Docker Image (e.g., nginx:alpine)" 
+                placeholder="Enter Docker Image (e.g., nginx:alpine or ghcr.io/org/app:latest)" 
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
                 disabled={isRunning}
                 required
               />
+
+              {/* One-Click Presets */}
+              <div className={styles.presetContainer}>
+                <span>⚡ Quick Presets:</span>
+                {PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className={styles.presetBtn}
+                    onClick={() => setImage(preset)}
+                    disabled={isRunning}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              {/* Advanced Settings Toggle */}
+              <div>
+                <button 
+                  type="button" 
+                  className={styles.advancedToggle} 
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                  {showAdvanced ? '▼ Hide Advanced Settings' : '▶ ⚙️ Private Registry Auth & Webhook Alerts'}
+                </button>
+              </div>
+
+              {showAdvanced && (
+                <div className={styles.advancedPanel}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                    🔒 Private Container Registry Credentials (Optional)
+                  </div>
+                  <div className={styles.gridForm}>
+                    <Input 
+                      placeholder="Registry Username (e.g. DockerHub/ghcr.io user)"
+                      value={registryUser}
+                      onChange={(e) => setRegistryUser(e.target.value)}
+                      disabled={isRunning}
+                    />
+                    <Input 
+                      type="password"
+                      placeholder="Personal Access Token / Password"
+                      value={registryToken}
+                      onChange={(e) => setRegistryToken(e.target.value)}
+                      disabled={isRunning}
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)', marginTop: '0.5rem' }}>
+                    🔔 Webhook Alert Notification URL (Optional)
+                  </div>
+                  <Input 
+                    placeholder="Slack / Discord Webhook URL (e.g., https://hooks.slack.com/services/...)"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    disabled={isRunning}
+                  />
+                </div>
+              )}
+
               <Button type="submit" disabled={isRunning || !image} className={styles.primary}>
                 {isRunning ? 'Running Analysis...' : 'Run Resilience Test'}
               </Button>

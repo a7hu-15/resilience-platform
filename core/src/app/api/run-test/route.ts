@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
     // @ts-ignore
     const userId = session.user.id;
-    const { imageName } = await request.json();
+    const { imageName, registryUser, registryToken, webhookUrl } = await request.json();
 
     if (!imageName) {
       return NextResponse.json({ error: 'Missing imageName' }, { status: 400 });
@@ -67,9 +67,7 @@ export async function POST(request: Request) {
     });
 
     // 2. Trigger the asynchronous pipeline
-    // In a production environment, this would be pushed to an SQS queue or background worker (BullMQ/Celery).
-    // For this monolith demonstration, we fire and forget the promise.
-    executeTestPipeline(imageName, testRunId)
+    executeTestPipeline(imageName, testRunId, { registryUser, registryToken, webhookUrl })
       .then(async (reportData) => {
         // 3. Update Prisma on Success
         await prisma.testRun.update({

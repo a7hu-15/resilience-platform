@@ -1,4 +1,4 @@
-import { checkDockerDaemon } from '../docker/docker';
+import { checkDockerDaemon, dockerLogin } from '../docker/docker';
 import { provisionSandboxContainer, teardownSandboxContainer, SandboxInstance } from '../docker/sandbox';
 import { runTrivyScan } from '../security/trivy';
 import { runDastScan } from '../security/dast';
@@ -6,6 +6,7 @@ import { runIacScan } from '../security/iac';
 import { runLoadTest } from '../load/k6';
 import { injectPodKill } from '../chaos/experiments';
 import { observeRecovery } from '../chaos/recovery';
+import { sendWebhookNotification } from '../notifications/webhook';
 import { 
   calculateSecurityScore,
   calculateIacScore,
@@ -16,6 +17,12 @@ import {
 } from '../scoring/algorithms';
 import { generatePDFReport, ReportData } from '../reports/pdf';
 
+export interface PipelineOptions {
+  registryUser?: string;
+  registryToken?: string;
+  webhookUrl?: string;
+}
+
 /**
  * The Master Orchestrator Pipeline (100% Real Empirical Execution).
  * Executes live container lifecycle, security scans, live load stress tests, and chaos injection.
@@ -23,14 +30,24 @@ import { generatePDFReport, ReportData } from '../reports/pdf';
  * 
  * @param imageName The Docker image to test (e.g., 'nginx:alpine' or 'ashu804/slow-app')
  * @param testRunId A unique UUID for this test run
+ * @param options Optional registry auth credentials and webhook notification URL
  */
-export async function executeTestPipeline(imageName: string, testRunId: string): Promise<ReportData> {
+export async function executeTestPipeline(
+  imageName: string, 
+  testRunId: string,
+  options?: PipelineOptions
+): Promise<ReportData> {
   console.log(`[Pipeline] Starting 100% real empirical resilience pipeline for ${imageName}`);
 
   // 1. Strict Prerequisites & System Readiness Check
   const isDockerActive = await checkDockerDaemon();
   if (!isDockerActive) {
     throw new Error(`Docker Daemon is not running. Please start Docker Desktop to execute real container testing for '${imageName}'.`);
+  }
+
+  // Handle Private Registry Login if credentials provided
+  if (options?.registryUser && options?.registryToken) {
+    await dockerLogin(options.registryUser, options.registryToken);
   }
   
   let sandbox: SandboxInstance | null = null;
@@ -86,6 +103,19 @@ export async function executeTestPipeline(imageName: string, testRunId: string):
 
     // 9. Generate PDF Report
     await generatePDFReport(testRunId, reportData);
+
+    // 10. Dispatch Webhook Alert if configured
+    if (options?.webhookUrl) {
+      await sendWebhookNotification(options.webhookUrl, {
+        testRunId,
+        imageName,
+        masterScore,
+        qualityGatePassed: masterScore >= 70 && securityScore >= 70,
+        securityScore,
+        performanceScore,
+        resilienceScore
+      });
+    }
     
     console.log(`[Pipeline] Empirical test pipeline completed successfully for ${imageName}. Master Score: ${masterScore}`);
     return reportData;
