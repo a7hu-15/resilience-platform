@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
 import prisma from '../../../../db/prisma';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * @swagger
  * /api/results/{id}:

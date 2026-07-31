@@ -6,6 +6,8 @@ import { authOptions } from '../auth/[...nextauth]/route';
 import { sendCompletionEmail } from '../../../modules/notifications/email';
 import prisma from '../../../db/prisma';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * @swagger
  * /api/run-test:

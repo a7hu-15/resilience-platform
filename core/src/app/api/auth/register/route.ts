@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import prisma from '../../../../db/prisma';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * @swagger
  * /api/auth/register:
