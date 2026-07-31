@@ -1,4 +1,4 @@
 {
-  "buildCommand": "cd core && npm run build",
+  "buildCommand": "cd core && npm install && npm run build",
   "outputDirectory": "core/.next"
 }
