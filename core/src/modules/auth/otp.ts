@@ -1,5 +1,6 @@
 import { promises as dnsPromises } from 'dns';
 import { randomInt } from 'crypto';
+import net from 'net';
 import prisma from '../../db/prisma';
 
 // Known list of temporary, disposable, or fake email domains
@@ -14,7 +15,84 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 
 /**
- * Validates RFC syntax, blocks disposable email domains, and verifies active DNS MX records.
+ * Perform direct SMTP socket RCPT TO handshake to verify if a mailbox actually exists on the target mail server.
+ */
+export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Promise<{ exists: boolean; reason?: string }> {
+  return new Promise((resolve) => {
+    let hasResolved = false;
+    let socket: net.Socket;
+
+    const cleanup = () => {
+      if (!hasResolved) {
+        hasResolved = true;
+        try {
+          socket?.destroy();
+        } catch {}
+      }
+    };
+
+    try {
+      socket = net.createConnection(25, mxHost);
+    } catch {
+      return resolve({ exists: true }); // Fallback gracefully if socket creation fails
+    }
+
+    // 5 second timeout for SMTP handshake
+    socket.setTimeout(5000, () => {
+      cleanup();
+      resolve({ exists: true }); // Fallback on port 25 timeout (common on cloud hosts like Vercel)
+    });
+
+    socket.on('error', () => {
+      cleanup();
+      resolve({ exists: true }); // Fallback on network connection block
+    });
+
+    let step = 0;
+
+    socket.on('data', (data) => {
+      const response = data.toString();
+      const code = parseInt(response.substring(0, 3), 10);
+
+      if (step === 0) {
+        // Initial 220 banner
+        if (code === 220) {
+          socket.write(`EHLO resilience-platform.org\r\n`);
+          step = 1;
+        } else {
+          cleanup();
+          resolve({ exists: true });
+        }
+      } else if (step === 1) {
+        // EHLO 250 response
+        socket.write(`MAIL FROM:<verify@resilience-platform.org>\r\n`);
+        step = 2;
+      } else if (step === 2) {
+        // MAIL FROM 250 response
+        socket.write(`RCPT TO:<${email}>\r\n`);
+        step = 3;
+      } else if (step === 3) {
+        // RCPT TO response
+        socket.write(`QUIT\r\n`);
+        cleanup();
+        if (code === 250 || code === 251) {
+          resolve({ exists: true });
+        } else if (code === 550 || code === 551 || code === 552 || code === 553 || code === 501) {
+          const domain = email.split('@')[1];
+          resolve({ 
+            exists: false, 
+            reason: `The email account '${email}' does not exist on @${domain}'s mail server (550 Mailbox Unknown).` 
+          });
+        } else {
+          resolve({ exists: true });
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Validates RFC syntax, blocks disposable email domains, performs DNS MX lookup, and pings mail server.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -36,15 +114,24 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
   }
 
   // 2. Perform live DNS MX record lookup
+  let mxRecords;
   try {
-    const mxRecords = await dnsPromises.resolveMx(domain);
+    mxRecords = await dnsPromises.resolveMx(domain);
     if (!mxRecords || mxRecords.length === 0) {
       return { valid: false, reason: `The email domain '@${domain}' does not have active mail servers (MX records).` };
     }
-    return { valid: true };
   } catch (error) {
     return { valid: false, reason: `The email domain '@${domain}' does not exist or has no active mail server.` };
   }
+
+  // 3. Perform live SMTP mailbox ping verification (if network permits)
+  mxRecords.sort((a, b) => a.priority - b.priority);
+  const mxPing = await verifyMailboxExistsSmtp(email, mxRecords[0].exchange);
+  if (!mxPing.exists) {
+    return { valid: false, reason: mxPing.reason || `The email address '${email}' does not exist on the target mail server.` };
+  }
+
+  return { valid: true };
 }
 
 /**
