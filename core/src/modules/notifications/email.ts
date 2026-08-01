@@ -63,33 +63,37 @@ export async function sendOtpEmail(
       </div>
     `;
 
-    // 1. Direct Resend API (HTTP Port 443 - Fast & Reliable on Vercel)
+    // 1. Try Direct Resend API
     if (process.env.RESEND_API_KEY) {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: process.env.SMTP_FROM || 'Resilience Platform <onboarding@resend.dev>',
-          to: [userEmail],
-          subject,
-          html: htmlContent
-        })
-      });
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: process.env.SMTP_FROM || 'Resilience Platform <onboarding@resend.dev>',
+            to: [userEmail],
+            subject,
+            html: htmlContent
+          })
+        });
 
-      if (res.ok) {
-        console.log(`[Resend API] Successfully delivered ${purpose} OTP to ${userEmail}`);
-        return true;
-      } else {
-        const errorData = await res.json();
-        console.error(`[Resend API Error] Failed to send email to ${userEmail}:`, errorData);
-        return false;
+        if (res.ok) {
+          console.log(`[Resend API] Successfully delivered ${purpose} OTP to ${userEmail}`);
+          return true;
+        } else {
+          const errorData = await res.json();
+          console.warn(`[Resend API Warning] Resend API restriction for ${userEmail}:`, errorData);
+          // Fall through to standard transporter if Resend returns testing restriction
+        }
+      } catch (resendErr) {
+        console.warn(`[Resend API Warning] Resend fetch failed, falling back to standard transporter:`, resendErr);
       }
     }
 
-    // 2. Standard SMTP Transporter (Nodemailer)
+    // 2. Fallback to Standard Transporter
     const transporter = await getTransporter();
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
