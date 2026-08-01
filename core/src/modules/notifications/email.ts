@@ -35,8 +35,6 @@ export async function sendOtpEmail(
   purpose: 'REGISTER' | 'LOGIN' | 'RESET_PASSWORD'
 ): Promise<boolean> {
   try {
-    const transporter = await getTransporter();
-
     let subject = '🔒 Email Verification Code';
     let actionTitle = 'Email Verification Code';
     let actionDesc = 'Use the 6-digit verification code below to complete your registration on Resilience Platform:';
@@ -51,24 +49,54 @@ export async function sendOtpEmail(
       actionDesc = 'You requested to reset your password. Use the 6-digit code below to set a new password:';
     }
 
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 12px;">
+        <h2 style="color: #a855f7; margin-top: 0;">🛡️ Resilience Platform</h2>
+        <h3 style="color: #e2e8f0; font-size: 1.25rem;">${actionTitle}</h3>
+        <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.5;">${actionDesc}</p>
+        
+        <div style="background-color: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+          <span style="font-size: 2.2rem; font-weight: 800; letter-spacing: 6px; color: #38bdf8; font-family: monospace;">${otp}</span>
+        </div>
+
+        <p style="color: #64748b; font-size: 0.85rem;">This code is valid for 10 minutes. If you did not initiate this request, please ignore this email.</p>
+      </div>
+    `;
+
+    // 1. Direct Resend API (HTTP Port 443 - Fast & Reliable on Vercel)
+    if (process.env.RESEND_API_KEY) {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: process.env.SMTP_FROM || 'Resilience Platform <onboarding@resend.dev>',
+          to: [userEmail],
+          subject,
+          html: htmlContent
+        })
+      });
+
+      if (res.ok) {
+        console.log(`[Resend API] Successfully delivered ${purpose} OTP to ${userEmail}`);
+        return true;
+      } else {
+        const errorData = await res.json();
+        console.error(`[Resend API Error] Failed to send email to ${userEmail}:`, errorData);
+        return false;
+      }
+    }
+
+    // 2. Standard SMTP Transporter (Nodemailer)
+    const transporter = await getTransporter();
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
       to: userEmail,
       subject,
       text: `${actionTitle}: ${otp}. Valid for 10 minutes.`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 12px;">
-          <h2 style="color: #a855f7; margin-top: 0;">🛡️ Resilience Platform</h2>
-          <h3 style="color: #e2e8f0; font-size: 1.25rem;">${actionTitle}</h3>
-          <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.5;">${actionDesc}</p>
-          
-          <div style="background-color: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 2.2rem; font-weight: 800; letter-spacing: 6px; color: #38bdf8; font-family: monospace;">${otp}</span>
-          </div>
-
-          <p style="color: #64748b; font-size: 0.85rem;">This code is valid for 10 minutes. If you did not initiate this request, please ignore this email.</p>
-        </div>
-      `,
+      html: htmlContent,
     });
 
     console.log(`[Email OTP] Sent ${purpose} code to ${userEmail}. Message ID: ${info.messageId}`);
