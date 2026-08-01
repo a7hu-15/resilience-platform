@@ -15,30 +15,6 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 
 /**
- * Robust Gibberish & Keyboard-Mash Email Filter
- * Detects unreadable random consonant clusters, mixed random digits, or fake key mashes (e.g. kjsdgfkjhg13824yhadsgc).
- */
-function isGibberishUsername(username: string): boolean {
-  // 1. Any local username containing 5 or more consecutive consonants (e.g. kjsdg, fkjhg, sdhfj)
-  const consonantCluster = /[bcdfghjklmnpqrstvwxyz]{5,}/i;
-  if (consonantCluster.test(username)) return true;
-
-  // 2. Any username > 14 chars with mixed random digits and letters without standard separators (._-)
-  if (username.length > 14 && /\d+/.test(username) && /[a-z]+/.test(username) && !/[._-]/.test(username)) {
-    const digitCount = (username.match(/\d/g) || []).length;
-    const letterCount = (username.match(/[a-z]/gi) || []).length;
-    if (digitCount >= 3 && letterCount >= 6) return true;
-  }
-
-  // 3. High-entropy unreadable strings
-  if (username.length > 16 && /[bcdfghjklmnpqrstvwxyz]{4,}/i.test(username)) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * Real-Time HTTPS Email Deliverability API Check
  * Queries open deliverability endpoints over HTTPS (Port 443) which works natively in Vercel Serverless environment.
  */
@@ -146,7 +122,7 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
 }
 
 /**
- * Validates RFC syntax, blocks disposable email domains, detects keyboard mashes, queries HTTPS deliverability API, and performs MX lookup.
+ * Validates RFC syntax, blocks disposable email domains, queries HTTPS deliverability API, and performs MX lookup.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -162,15 +138,7 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: 'Invalid email address.' };
   }
 
-  // 1. Block random keyboard-mash / gibberish usernames (e.g. kjsdgfkjhg13824yhadsgc)
-  if (isGibberishUsername(localPart)) {
-    return { 
-      valid: false, 
-      reason: 'This email address appears to be a random or non-existent email account. Please enter a valid, real email address.' 
-    };
-  }
-
-  // 2. Block disposable / temporary fake email services
+  // 1. Block disposable / temporary fake email services
   if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
     return { 
       valid: false, 
@@ -178,13 +146,13 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     };
   }
 
-  // 3. Real-Time HTTPS Email Deliverability API Check (Works on Vercel Port 443)
+  // 2. Real-Time HTTPS Email Deliverability API Check (Works on Vercel Port 443)
   const apiCheck = await checkEmailDeliverabilityApi(email);
   if (!apiCheck.valid) {
     return { valid: false, reason: apiCheck.reason || 'This email address does not exist or is undeliverable.' };
   }
 
-  // 4. Perform live DNS MX record lookup
+  // 3. Perform live DNS MX record lookup
   let mxRecords;
   try {
     mxRecords = await dnsPromises.resolveMx(domain);
@@ -195,7 +163,7 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: `The email domain '@${domain}' does not exist or has no active mail server.` };
   }
 
-  // 5. Perform live SMTP mailbox ping verification (if port 25 is unblocked)
+  // 4. Perform live SMTP mailbox ping verification (if port 25 is unblocked)
   mxRecords.sort((a, b) => a.priority - b.priority);
   const mxPing = await verifyMailboxExistsSmtp(email, mxRecords[0].exchange);
   if (!mxPing.exists) {

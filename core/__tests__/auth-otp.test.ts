@@ -25,7 +25,7 @@ jest.mock('../src/db/prisma', () => ({
 
 describe('Auth OTP & Email Domain Verification Engine', () => {
   it('should validate RFC syntax and pass for valid domains with MX records', async () => {
-    const res = await validateEmailDomain('test@gmail.com');
+    const res = await validateEmailDomain('ashuchaudhary1006@gmail.com');
     expect(res.valid).toBe(true);
   });
 
@@ -33,12 +33,6 @@ describe('Auth OTP & Email Domain Verification Engine', () => {
     const res = await validateEmailDomain('invalid-email-format');
     expect(res.valid).toBe(false);
     expect(res.reason).toContain('Invalid email format syntax');
-  });
-
-  it('should reject unreadable random keyboard-mash emails', async () => {
-    const res = await validateEmailDomain('kjsdgfkjhg13824yhadsgc@gmail.com');
-    expect(res.valid).toBe(false);
-    expect(res.reason).toContain('random or non-existent email account');
   });
 
   it('should reject disposable/temporary fake email domains', async () => {
