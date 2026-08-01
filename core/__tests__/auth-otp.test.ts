@@ -35,6 +35,12 @@ describe('Auth OTP & Email Domain Verification Engine', () => {
     expect(res.reason).toContain('Invalid email format syntax');
   });
 
+  it('should reject unreadable random keyboard-mash emails', async () => {
+    const res = await validateEmailDomain('kjsdgfkjhg13824yhadsgc@gmail.com');
+    expect(res.valid).toBe(false);
+    expect(res.reason).toContain('random or non-existent email account');
+  });
+
   it('should reject disposable/temporary fake email domains', async () => {
     const res = await validateEmailDomain('user@mailinator.com');
     expect(res.valid).toBe(false);

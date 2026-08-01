@@ -15,15 +15,62 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 
 /**
- * Checks if local email username is suspicious gibberish / keyboard mash (e.g. osadhfjash239429384idwhfjiwah)
+ * Robust Gibberish & Keyboard-Mash Email Filter
+ * Detects unreadable random consonant clusters, mixed random digits, or fake key mashes (e.g. kjsdgfkjhg13824yhadsgc).
  */
 function isGibberishUsername(username: string): boolean {
-  if (username.length > 22 && /\d+/.test(username) && /[a-z]+/.test(username)) {
-    // High ratio of random consonants or digits in long strings
-    const consonantCluster = /[bcdfghjklmnpqrstvwxyz]{6,}/i;
-    if (consonantCluster.test(username)) return true;
+  // 1. Any local username containing 5 or more consecutive consonants (e.g. kjsdg, fkjhg, sdhfj)
+  const consonantCluster = /[bcdfghjklmnpqrstvwxyz]{5,}/i;
+  if (consonantCluster.test(username)) return true;
+
+  // 2. Any username > 14 chars with mixed random digits and letters without standard separators (._-)
+  if (username.length > 14 && /\d+/.test(username) && /[a-z]+/.test(username) && !/[._-]/.test(username)) {
+    const digitCount = (username.match(/\d/g) || []).length;
+    const letterCount = (username.match(/[a-z]/gi) || []).length;
+    if (digitCount >= 3 && letterCount >= 6) return true;
   }
+
+  // 3. High-entropy unreadable strings
+  if (username.length > 16 && /[bcdfghjklmnpqrstvwxyz]{4,}/i.test(username)) {
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * Real-Time HTTPS Email Deliverability API Check
+ * Queries open deliverability endpoints over HTTPS (Port 443) which works natively in Vercel Serverless environment.
+ */
+export async function checkEmailDeliverabilityApi(email: string): Promise<{ valid: boolean; reason?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const response = await fetch(`https://api.eva.pingutil.com/email?email=${encodeURIComponent(email)}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.status === 'success' && data.data) {
+        const { deliverable, disposable, valid_syntax } = data.data;
+        if (!valid_syntax) {
+          return { valid: false, reason: 'Invalid email address syntax format.' };
+        }
+        if (disposable) {
+          return { valid: false, reason: 'Disposable or temporary email addresses are not allowed. Please use a permanent email address.' };
+        }
+        if (deliverable === false) {
+          return { valid: false, reason: `The email address '${email}' does not exist or is undeliverable. Please enter a valid, active email address.` };
+        }
+      }
+    }
+  } catch (err) {
+    // Fail open safely if external API is unreachable/times out
+  }
+  return { valid: true };
 }
 
 /**
@@ -49,7 +96,7 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
       return resolve({ exists: true });
     }
 
-    socket.setTimeout(5000, () => {
+    socket.setTimeout(4000, () => {
       cleanup();
       resolve({ exists: true });
     });
@@ -99,7 +146,7 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
 }
 
 /**
- * Validates RFC syntax, blocks disposable email domains, detects keyboard mash, performs DNS MX lookup, and pings mail server.
+ * Validates RFC syntax, blocks disposable email domains, detects keyboard mashes, queries HTTPS deliverability API, and performs MX lookup.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -115,11 +162,11 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: 'Invalid email address.' };
   }
 
-  // 1. Block random keyboard-mash / gibberish usernames
+  // 1. Block random keyboard-mash / gibberish usernames (e.g. kjsdgfkjhg13824yhadsgc)
   if (isGibberishUsername(localPart)) {
     return { 
       valid: false, 
-      reason: 'This email username appears to be a random or non-existent email address. Please use a valid email.' 
+      reason: 'This email address appears to be a random or non-existent email account. Please enter a valid, real email address.' 
     };
   }
 
@@ -131,7 +178,13 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     };
   }
 
-  // 3. Perform live DNS MX record lookup
+  // 3. Real-Time HTTPS Email Deliverability API Check (Works on Vercel Port 443)
+  const apiCheck = await checkEmailDeliverabilityApi(email);
+  if (!apiCheck.valid) {
+    return { valid: false, reason: apiCheck.reason || 'This email address does not exist or is undeliverable.' };
+  }
+
+  // 4. Perform live DNS MX record lookup
   let mxRecords;
   try {
     mxRecords = await dnsPromises.resolveMx(domain);
@@ -142,7 +195,7 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: `The email domain '@${domain}' does not exist or has no active mail server.` };
   }
 
-  // 4. Perform live SMTP mailbox ping verification (if network permits)
+  // 5. Perform live SMTP mailbox ping verification (if port 25 is unblocked)
   mxRecords.sort((a, b) => a.priority - b.priority);
   const mxPing = await verifyMailboxExistsSmtp(email, mxRecords[0].exchange);
   if (!mxPing.exists) {
