@@ -44,7 +44,7 @@ describe('Auth OTP & Email Domain Verification Engine', () => {
   it('should reject non-existent domains without mail server MX records', async () => {
     const res = await validateEmailDomain('user@non-existent-fake-domain-xyz999.com');
     expect(res.valid).toBe(false);
-    expect(res.reason).toContain('does not exist or has no active mail server');
+    expect(res.reason).toContain('does not exist');
   });
 
   it('should generate a 6-digit OTP code and store token record', async () => {

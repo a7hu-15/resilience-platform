@@ -15,36 +15,36 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 
 /**
- * Real-Time HTTPS Email Deliverability API Check
- * Queries open deliverability endpoints over HTTPS (Port 443) which works natively in Vercel Serverless environment.
+ * Ultra-Fast Google DNS-over-HTTPS Domain & MX Verification API.
+ * Uses Google's official DNS-over-HTTPS API (Port 443) which runs reliably in all Serverless environments.
  */
-export async function checkEmailDeliverabilityApi(email: string): Promise<{ valid: boolean; reason?: string }> {
+export async function verifyDomainDnsOverHttps(domain: string): Promise<{ valid: boolean; reason?: string }> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-    const response = await fetch(`https://api.eva.pingutil.com/email?email=${encodeURIComponent(email)}`, {
+    const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`, {
+      headers: { 'Accept': 'application/json' },
       signal: controller.signal
     });
     clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.status === 'success' && data.data) {
-        const { deliverable, disposable, valid_syntax } = data.data;
-        if (!valid_syntax) {
-          return { valid: false, reason: 'Invalid email address syntax format.' };
-        }
-        if (disposable) {
-          return { valid: false, reason: 'Disposable or temporary email addresses are not allowed. Please use a permanent email address.' };
-        }
-        if (deliverable === false) {
-          return { valid: false, reason: `The email address '${email}' does not exist or is undeliverable. Please enter a valid, active email address.` };
+    if (res.ok) {
+      const data = await res.json();
+      // Status 3 = NXDOMAIN (Domain does not exist in global DNS)
+      if (data.Status === 3) {
+        return { valid: false, reason: `The email domain '@${domain}' does not exist.` };
+      }
+      // Status 0 = Success. Verify MX records are present
+      if (data.Status === 0) {
+        const hasMx = data.Answer && data.Answer.some((record: any) => record.type === 15);
+        if (!hasMx) {
+          return { valid: false, reason: `The domain '@${domain}' has no active mail servers (MX records).` };
         }
       }
     }
   } catch (err) {
-    // Fail open safely if external API is unreachable/times out
+    // Fallback to local Node DNS lookup if Google DoH is unreachable
   }
   return { valid: true };
 }
@@ -122,7 +122,7 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
 }
 
 /**
- * Validates RFC syntax, blocks disposable email domains, queries HTTPS deliverability API, and performs MX lookup.
+ * Validates RFC syntax, blocks disposable email domains, queries Google DoH, and performs MX lookup.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -146,13 +146,13 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     };
   }
 
-  // 2. Real-Time HTTPS Email Deliverability API Check (Works on Vercel Port 443)
-  const apiCheck = await checkEmailDeliverabilityApi(email);
-  if (!apiCheck.valid) {
-    return { valid: false, reason: apiCheck.reason || 'This email address does not exist or is undeliverable.' };
+  // 2. Google DNS-over-HTTPS API Domain Verification (Port 443)
+  const dohCheck = await verifyDomainDnsOverHttps(domain);
+  if (!dohCheck.valid) {
+    return { valid: false, reason: dohCheck.reason || `The domain '@${domain}' does not exist.` };
   }
 
-  // 3. Perform live DNS MX record lookup
+  // 3. Local Node DNS MX record lookup
   let mxRecords;
   try {
     mxRecords = await dnsPromises.resolveMx(domain);
@@ -163,7 +163,7 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: `The email domain '@${domain}' does not exist or has no active mail server.` };
   }
 
-  // 4. Perform live SMTP mailbox ping verification (if port 25 is unblocked)
+  // 4. Live SMTP mailbox ping verification (if port 25 is unblocked)
   mxRecords.sort((a, b) => a.priority - b.priority);
   const mxPing = await verifyMailboxExistsSmtp(email, mxRecords[0].exchange);
   if (!mxPing.exists) {
