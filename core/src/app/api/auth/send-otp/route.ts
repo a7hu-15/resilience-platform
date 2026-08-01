@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 1. Strict RFC Syntax & DNS MX Domain Verification
+    // 1. Strict RFC Syntax, Disposable Domain Blocklist & DNS MX Verification
     const domainCheck = await validateEmailDomain(normalizedEmail);
     if (!domainCheck.valid) {
       return NextResponse.json({ error: domainCheck.reason || 'Invalid email address.' }, { status: 400 });
@@ -54,7 +54,13 @@ export async function POST(request: Request) {
 
     // 3. Generate & Dispatch OTP
     const otp = await createOtpToken(normalizedEmail, purpose as any, user?.id);
-    await sendOtpEmail(normalizedEmail, otp, purpose as any);
+    const emailSent = await sendOtpEmail(normalizedEmail, otp, purpose as any);
+
+    if (!emailSent) {
+      return NextResponse.json({ 
+        error: 'Failed to deliver verification email to this address. Please ensure the email is active and typed correctly.' 
+      }, { status: 400 });
+    }
 
     return NextResponse.json({
       success: true,

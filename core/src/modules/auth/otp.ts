@@ -2,13 +2,24 @@ import { promises as dnsPromises } from 'dns';
 import { randomInt } from 'crypto';
 import prisma from '../../db/prisma';
 
+// Known list of temporary, disposable, or fake email domains
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  'mailinator.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com',
+  'yopmail.com', 'trashmail.com', 'dispostable.com', 'getnada.com',
+  'sharklasers.com', 'throwawaymail.com', 'temp-mail.org', 'fakemail.net',
+  'generator.email', 'maildrop.cc', 'inboxalias.com', 'mohmal.com',
+  'crazymailing.com', 'tmailor.com', 'tempmail.net', 'mailnesia.com',
+  'dropmail.me', 'disposablemail.com', 'tempinbox.com', 'emailondeck.com',
+  'asdf.com', 'test.com', 'fake.com', 'example.com', 'invalid.com', 'dummy.com'
+]);
+
 /**
- * Validates RFC syntax and verifies the email domain has valid DNS MX records.
+ * Validates RFC syntax, blocks disposable email domains, and verifies active DNS MX records.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(email)) {
-    return { valid: false, reason: 'Invalid email format syntax.' };
+    return { valid: false, reason: 'Invalid email format syntax. Please enter a valid email address.' };
   }
 
   const domain = email.split('@')[1]?.toLowerCase();
@@ -16,6 +27,15 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: 'Invalid email domain.' };
   }
 
+  // 1. Block disposable / temporary fake email services
+  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+    return { 
+      valid: false, 
+      reason: `The domain '@${domain}' is a disposable or temporary email provider. Please register with a permanent email address (e.g. Gmail, Outlook, Yahoo, Work/School email).` 
+    };
+  }
+
+  // 2. Perform live DNS MX record lookup
   try {
     const mxRecords = await dnsPromises.resolveMx(domain);
     if (!mxRecords || mxRecords.length === 0) {
