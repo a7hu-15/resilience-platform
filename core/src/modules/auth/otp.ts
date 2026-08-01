@@ -15,6 +15,18 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
 ]);
 
 /**
+ * Checks if local email username is suspicious gibberish / keyboard mash (e.g. osadhfjash239429384idwhfjiwah)
+ */
+function isGibberishUsername(username: string): boolean {
+  if (username.length > 22 && /\d+/.test(username) && /[a-z]+/.test(username)) {
+    // High ratio of random consonants or digits in long strings
+    const consonantCluster = /[bcdfghjklmnpqrstvwxyz]{6,}/i;
+    if (consonantCluster.test(username)) return true;
+  }
+  return false;
+}
+
+/**
  * Perform direct SMTP socket RCPT TO handshake to verify if a mailbox actually exists on the target mail server.
  */
 export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Promise<{ exists: boolean; reason?: string }> {
@@ -34,18 +46,17 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
     try {
       socket = net.createConnection(25, mxHost);
     } catch {
-      return resolve({ exists: true }); // Fallback gracefully if socket creation fails
+      return resolve({ exists: true });
     }
 
-    // 5 second timeout for SMTP handshake
     socket.setTimeout(5000, () => {
       cleanup();
-      resolve({ exists: true }); // Fallback on port 25 timeout (common on cloud hosts like Vercel)
+      resolve({ exists: true });
     });
 
     socket.on('error', () => {
       cleanup();
-      resolve({ exists: true }); // Fallback on network connection block
+      resolve({ exists: true });
     });
 
     let step = 0;
@@ -55,7 +66,6 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
       const code = parseInt(response.substring(0, 3), 10);
 
       if (step === 0) {
-        // Initial 220 banner
         if (code === 220) {
           socket.write(`EHLO resilience-platform.org\r\n`);
           step = 1;
@@ -64,15 +74,12 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
           resolve({ exists: true });
         }
       } else if (step === 1) {
-        // EHLO 250 response
         socket.write(`MAIL FROM:<verify@resilience-platform.org>\r\n`);
         step = 2;
       } else if (step === 2) {
-        // MAIL FROM 250 response
         socket.write(`RCPT TO:<${email}>\r\n`);
         step = 3;
       } else if (step === 3) {
-        // RCPT TO response
         socket.write(`QUIT\r\n`);
         cleanup();
         if (code === 250 || code === 251) {
@@ -92,7 +99,7 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
 }
 
 /**
- * Validates RFC syntax, blocks disposable email domains, performs DNS MX lookup, and pings mail server.
+ * Validates RFC syntax, blocks disposable email domains, detects keyboard mash, performs DNS MX lookup, and pings mail server.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -100,12 +107,23 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: 'Invalid email format syntax. Please enter a valid email address.' };
   }
 
-  const domain = email.split('@')[1]?.toLowerCase();
-  if (!domain) {
-    return { valid: false, reason: 'Invalid email domain.' };
+  const parts = email.split('@');
+  const localPart = parts[0]?.toLowerCase();
+  const domain = parts[1]?.toLowerCase();
+
+  if (!localPart || !domain) {
+    return { valid: false, reason: 'Invalid email address.' };
   }
 
-  // 1. Block disposable / temporary fake email services
+  // 1. Block random keyboard-mash / gibberish usernames
+  if (isGibberishUsername(localPart)) {
+    return { 
+      valid: false, 
+      reason: 'This email username appears to be a random or non-existent email address. Please use a valid email.' 
+    };
+  }
+
+  // 2. Block disposable / temporary fake email services
   if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
     return { 
       valid: false, 
@@ -113,7 +131,7 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     };
   }
 
-  // 2. Perform live DNS MX record lookup
+  // 3. Perform live DNS MX record lookup
   let mxRecords;
   try {
     mxRecords = await dnsPromises.resolveMx(domain);
@@ -124,7 +142,7 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: `The email domain '@${domain}' does not exist or has no active mail server.` };
   }
 
-  // 3. Perform live SMTP mailbox ping verification (if network permits)
+  // 4. Perform live SMTP mailbox ping verification (if network permits)
   mxRecords.sort((a, b) => a.priority - b.priority);
   const mxPing = await verifyMailboxExistsSmtp(email, mxRecords[0].exchange);
   if (!mxPing.exists) {
