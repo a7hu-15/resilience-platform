@@ -1,26 +1,98 @@
 import nodemailer from 'nodemailer';
 
+async function getTransporter() {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+
+  // Fallback to Ethereal Email test account for local / dev testing
+  const testAccount = await nodemailer.createTestAccount();
+  return nodemailer.createTransport({
+    host: testAccount.smtp.host,
+    port: testAccount.smtp.port,
+    secure: testAccount.smtp.secure,
+    auth: {
+      user: testAccount.user,
+      pass: testAccount.pass,
+    },
+  });
+}
+
+/**
+ * Sends a 6-digit OTP verification code email for Register, 2FA Login, or Password Reset.
+ */
+export async function sendOtpEmail(
+  userEmail: string,
+  otp: string,
+  purpose: 'REGISTER' | 'LOGIN' | 'RESET_PASSWORD'
+): Promise<boolean> {
+  try {
+    const transporter = await getTransporter();
+
+    let subject = '🔒 Email Verification Code';
+    let actionTitle = 'Email Verification Code';
+    let actionDesc = 'Use the 6-digit verification code below to complete your registration on Resilience Platform:';
+
+    if (purpose === 'LOGIN') {
+      subject = '🔑 Login 2FA Verification Code';
+      actionTitle = 'Two-Factor Login Code';
+      actionDesc = 'A login attempt was initiated for your Resilience Platform account. Use the code below to complete sign-in:';
+    } else if (purpose === 'RESET_PASSWORD') {
+      subject = '🔄 Password Reset Code';
+      actionTitle = 'Password Reset Code';
+      actionDesc = 'You requested to reset your password. Use the 6-digit code below to set a new password:';
+    }
+
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
+      to: userEmail,
+      subject,
+      text: `${actionTitle}: ${otp}. Valid for 10 minutes.`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 12px;">
+          <h2 style="color: #a855f7; margin-top: 0;">🛡️ Resilience Platform</h2>
+          <h3 style="color: #e2e8f0; font-size: 1.25rem;">${actionTitle}</h3>
+          <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.5;">${actionDesc}</p>
+          
+          <div style="background-color: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 2.2rem; font-weight: 800; letter-spacing: 6px; color: #38bdf8; font-family: monospace;">${otp}</span>
+          </div>
+
+          <p style="color: #64748b; font-size: 0.85rem;">This code is valid for 10 minutes. If you did not initiate this request, please ignore this email.</p>
+        </div>
+      `,
+    });
+
+    console.log(`[Email OTP] Sent ${purpose} code to ${userEmail}. Message ID: ${info.messageId}`);
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`[Email OTP] Ethereal Preview URL: ${previewUrl}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`[Email OTP] Failed to send ${purpose} code to ${userEmail}`, error);
+    return false;
+  }
+}
+
 /**
  * Sends a notification email when a test run completes.
- * Uses Ethereal Email for local testing. In production, this would use SendGrid/Resend.
  */
 export async function sendCompletionEmail(userEmail: string, testRunId: string, masterScore: number) {
   try {
-    // Generate test SMTP service account from ethereal.email
-    const testAccount = await nodemailer.createTestAccount();
-
-    const transporter = nodemailer.createTransport({
-      host: testAccount.smtp.host,
-      port: testAccount.smtp.port,
-      secure: testAccount.smtp.secure,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
-    });
+    const transporter = await getTransporter();
 
     const info = await transporter.sendMail({
-      from: '"Resilience Platform" <no-reply@resilience-platform.local>',
+      from: process.env.SMTP_FROM || '"Resilience Platform" <no-reply@resilience-platform.local>',
       to: userEmail,
       subject: `✅ Resilience Test Completed (Score: ${masterScore})`,
       text: `Your resilience test has completed. Your Master Score is ${masterScore}. View results at http://localhost:3000/results/${testRunId}`,
@@ -41,8 +113,11 @@ export async function sendCompletionEmail(userEmail: string, testRunId: string, 
     });
 
     console.log(`[Email] Notification sent to ${userEmail}. Message ID: ${info.messageId}`);
-    console.log(`[Email] Ethereal Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
-    
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`[Email] Ethereal Preview URL: ${previewUrl}`);
+    }
+
     return true;
   } catch (error) {
     console.error(`[Email] Failed to send notification to ${userEmail}`, error);

@@ -14,9 +14,22 @@ model User {
   id           String    @id @default(cuid())
   email        String    @unique
   passwordHash String
+  emailVerified Boolean  @default(false)
   testRuns     TestRun[]
+  otpTokens    OtpToken[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model OtpToken {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  purpose   String   // "REGISTER", "LOGIN", "RESET_PASSWORD"
+  expiresAt DateTime
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  createdAt DateTime @default(now())
 }
 
 model TestRun {
