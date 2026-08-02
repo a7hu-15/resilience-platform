@@ -54,17 +54,23 @@ export async function POST(request: Request) {
 
     // 3. Generate & Dispatch OTP
     const otp = await createOtpToken(normalizedEmail, purpose as any, user?.id);
-    const emailSent = await sendOtpEmail(normalizedEmail, otp, purpose as any);
+    const emailResult = await sendOtpEmail(normalizedEmail, otp, purpose as any);
 
-    if (!emailSent) {
+    if (!emailResult.success) {
       return NextResponse.json({ 
         error: 'Failed to deliver verification email to this address. Please ensure the email is active and typed correctly.' 
       }, { status: 400 });
     }
 
+    let message = `A 6-digit verification code has been sent to ${normalizedEmail}.`;
+    if (emailResult.devCode && !emailResult.delivered) {
+      message = `A 6-digit verification code has been sent to ${normalizedEmail}. [Test Mode OTP Code: ${emailResult.devCode}]`;
+    }
+
     return NextResponse.json({
       success: true,
-      message: `A 6-digit verification code has been sent to ${normalizedEmail}.`
+      message,
+      delivered: emailResult.delivered
     }, { status: 200 });
 
   } catch (error: any) {

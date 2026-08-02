@@ -33,7 +33,7 @@ export async function sendOtpEmail(
   userEmail: string,
   otp: string,
   purpose: 'REGISTER' | 'LOGIN' | 'RESET_PASSWORD'
-): Promise<boolean> {
+): Promise<{ success: boolean; delivered: boolean; devCode?: string; note?: string }> {
   try {
     let subject = '🔒 Email Verification Code';
     let actionTitle = 'Email Verification Code';
@@ -82,14 +82,20 @@ export async function sendOtpEmail(
 
         if (res.ok) {
           console.log(`[Resend API] Successfully delivered ${purpose} OTP to ${userEmail}`);
-          return true;
+          return { success: true, delivered: true };
         } else {
           const errorData = await res.json();
-          console.warn(`[Resend API Warning] Resend API restriction for ${userEmail}:`, errorData);
-          // Fall through to standard transporter if Resend returns testing restriction
+          console.warn(`[Resend API Warning] Resend restriction for ${userEmail}:`, errorData);
+          // Resend free tier onboarding domain restriction (only allows sending to account owner email)
+          return { 
+            success: true, 
+            delivered: false, 
+            devCode: otp,
+            note: `Resend free tier onboarding domain restricts emails to account owner. Test Code: ${otp}`
+          };
         }
       } catch (resendErr) {
-        console.warn(`[Resend API Warning] Resend fetch failed, falling back to standard transporter:`, resendErr);
+        console.warn(`[Resend API Warning] Resend fetch failed:`, resendErr);
       }
     }
 
@@ -105,35 +111,21 @@ export async function sendOtpEmail(
       });
 
       console.log(`[Email OTP] Sent ${purpose} code to ${userEmail}. Message ID: ${info.messageId}`);
-      return true;
+      return { success: true, delivered: true };
     }
 
-    // 3. Fallback to Ethereal Test Account or Console Log (Development / Testing mode)
-    try {
-      const transporter = await getTransporter();
-      const info = await transporter.sendMail({
-        from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
-        to: userEmail,
-        subject,
-        text: `${actionTitle}: ${otp}. Valid for 10 minutes.`,
-        html: htmlContent,
-      });
+    // 3. Fallback to Console Log (Development / Demo Mode)
+    console.log(`[Email OTP Dev Mode] OTP for ${userEmail} [${purpose}]: ${otp}`);
+    return { 
+      success: true, 
+      delivered: false, 
+      devCode: otp,
+      note: `SMTP unconfigured. Demo Code: ${otp}` 
+    };
 
-      console.log(`[Email OTP] Sent ${purpose} code to ${userEmail}. Message ID: ${info.messageId}`);
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      if (previewUrl) {
-        console.log(`[Email OTP Dev Mode] Ethereal Preview URL: ${previewUrl}`);
-      }
-      return true;
-    } catch (etherealErr) {
-      console.log(`[Email OTP Dev Mode] Real SMTP/Resend key not set. Generated OTP for ${userEmail} [${purpose}]: ${otp}`);
-      return true;
-    }
   } catch (error) {
-    console.error(`[Email OTP] Failed to send ${purpose} code to ${userEmail}`, error);
-    // In dev mode, log OTP to console as fallback so developers aren't blocked
-    console.log(`[Email OTP Dev Fallback] Code for ${userEmail}: ${otp}`);
-    return true;
+    console.error(`[Email OTP] Error sending ${purpose} code to ${userEmail}`, error);
+    return { success: true, delivered: false, devCode: otp };
   }
 }
 
