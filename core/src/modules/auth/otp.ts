@@ -53,6 +53,11 @@ export async function verifyDomainDnsOverHttps(domain: string): Promise<{ valid:
  * Perform direct SMTP socket RCPT TO handshake to verify if a mailbox actually exists on the target mail server.
  */
 export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Promise<{ exists: boolean; reason?: string }> {
+  // Skip raw port 25 socket check in serverless environments (e.g., Vercel) where port 25 is blocked
+  if (process.env.VERCEL || process.env.DISABLE_SMTP_PING === 'true') {
+    return { exists: true };
+  }
+
   return new Promise((resolve) => {
     let hasResolved = false;
     let socket: net.Socket;
@@ -72,7 +77,8 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
       return resolve({ exists: true });
     }
 
-    socket.setTimeout(4000, () => {
+    // Use short 1.2s timeout so registration requests don't hang
+    socket.setTimeout(1200, () => {
       cleanup();
       resolve({ exists: true });
     });
