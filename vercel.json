@@ -1,4 +1,6 @@
 {
-  "buildCommand": "cd core && npm install && npm run build",
+  "framework": "nextjs",
+  "installCommand": "cd core && npm install",
+  "buildCommand": "cd core && npx prisma generate && next build",
   "outputDirectory": "core/.next"
 }
