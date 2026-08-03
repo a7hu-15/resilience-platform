@@ -1,0 +1,7 @@
+{
+  "name": "resilience-platform",
+  "private": true,
+  "dependencies": {
+    "next": "16.2.10"
+  }
+}

@@ -17,3 +17,5 @@ instance/
 *.key
 *.crt
 .envy
+node_modules/
+package-lock.json
