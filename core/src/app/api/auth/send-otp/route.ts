@@ -62,10 +62,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    let message = `A 6-digit verification code has been sent to ${normalizedEmail}.`;
-    if (emailResult.devCode && !emailResult.delivered) {
-      message = `A 6-digit verification code has been sent to ${normalizedEmail}. [Test Mode OTP Code: ${emailResult.devCode}]`;
-    }
+    let message = `A 6-digit verification code has been sent to ${normalizedEmail}. Please check your email inbox (and spam folder).`;
 
     return NextResponse.json({
       success: true,

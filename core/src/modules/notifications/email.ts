@@ -86,13 +86,6 @@ export async function sendOtpEmail(
         } else {
           const errorData = await res.json();
           console.warn(`[Resend API Warning] Resend restriction for ${userEmail}:`, errorData);
-          // Resend free tier onboarding domain restriction (only allows sending to account owner email)
-          return { 
-            success: true, 
-            delivered: false, 
-            devCode: otp,
-            note: `Resend free tier onboarding domain restricts emails to account owner. Test Code: ${otp}`
-          };
         }
       } catch (resendErr) {
         console.warn(`[Resend API Warning] Resend fetch failed:`, resendErr);
@@ -101,31 +94,34 @@ export async function sendOtpEmail(
 
     // 2. Fallback to Standard Transporter if SMTP configured
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      const transporter = await getTransporter();
-      const info = await transporter.sendMail({
-        from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
-        to: userEmail,
-        subject,
-        text: `${actionTitle}: ${otp}. Valid for 10 minutes.`,
-        html: htmlContent,
-      });
+      try {
+        const transporter = await getTransporter();
+        const info = await transporter.sendMail({
+          from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
+          to: userEmail,
+          subject,
+          text: `${actionTitle}: ${otp}. Valid for 10 minutes.`,
+          html: htmlContent,
+        });
 
-      console.log(`[Email OTP] Sent ${purpose} code to ${userEmail}. Message ID: ${info.messageId}`);
-      return { success: true, delivered: true };
+        console.log(`[Email OTP] Sent ${purpose} code to ${userEmail}. Message ID: ${info.messageId}`);
+        return { success: true, delivered: true };
+      } catch (smtpErr) {
+        console.error(`[Email OTP SMTP Error] Failed to send to ${userEmail}:`, smtpErr);
+      }
     }
 
-    // 3. Fallback to Console Log (Development / Demo Mode)
-    console.log(`[Email OTP Dev Mode] OTP for ${userEmail} [${purpose}]: ${otp}`);
+    // 3. Fallback when email provider cannot deliver
+    console.warn(`[Email OTP] Delivery failed for ${userEmail} [${purpose}]. Please configure RESEND_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS in Vercel environment variables.`);
     return { 
-      success: true, 
-      delivered: false, 
-      devCode: otp,
-      note: `SMTP unconfigured. Demo Code: ${otp}` 
+      success: false, 
+      delivered: false,
+      note: 'No active email provider available or provider rejected delivery.' 
     };
 
   } catch (error) {
     console.error(`[Email OTP] Error sending ${purpose} code to ${userEmail}`, error);
-    return { success: true, delivered: false, devCode: otp };
+    return { success: false, delivered: false };
   }
 }
 

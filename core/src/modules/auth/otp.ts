@@ -128,23 +128,38 @@ export async function verifyMailboxExistsSmtp(email: string, mxHost: string): Pr
 }
 
 /**
- * Validates RFC syntax, blocks disposable email domains, queries Google DoH, and performs MX lookup.
+ * Validates RFC 5322 syntax, blocks disposable email domains, queries Google DoH, and performs MX lookup.
  */
 export async function validateEmailDomain(email: string): Promise<{ valid: boolean; reason?: string }> {
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (!emailRegex.test(email)) {
-    return { valid: false, reason: 'Invalid email format syntax. Please enter a valid email address.' };
+  if (!email || typeof email !== 'string') {
+    return { valid: false, reason: 'Email address is required.' };
   }
 
-  const parts = email.split('@');
-  const localPart = parts[0]?.toLowerCase();
-  const domain = parts[1]?.toLowerCase();
+  const trimmed = email.trim();
 
-  if (!localPart || !domain) {
-    return { valid: false, reason: 'Invalid email address.' };
+  // Basic structure check
+  const atIndex = trimmed.indexOf('@');
+  if (atIndex <= 0 || atIndex !== trimmed.lastIndexOf('@') || atIndex === trimmed.length - 1) {
+    return { valid: false, reason: 'Invalid email format syntax. Email must contain exactly one "@" symbol.' };
   }
 
-  // 1. Block disposable / temporary fake email services
+  const localPart = trimmed.substring(0, atIndex);
+  const domain = trimmed.substring(atIndex + 1).toLowerCase();
+
+  // 1. Strict RFC 5322 Local-Part Validation
+  // Cannot start or end with a dot, no consecutive dots (..), allowed characters: a-z, A-Z, 0-9, . ! # $ % & ' * + - / = ? ^ _ ` { | } ~
+  const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+  if (!localPartRegex.test(localPart)) {
+    return { valid: false, reason: 'Invalid email username syntax. Consecutive dots (..) or special characters are not allowed.' };
+  }
+
+  // 2. Strict Domain-Part Syntax Validation
+  const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+  if (!domainRegex.test(domain)) {
+    return { valid: false, reason: 'Invalid email domain format. Please enter a valid email domain (e.g. gmail.com).' };
+  }
+
+  // 3. Block disposable / temporary fake email services
   if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
     return { 
       valid: false, 
@@ -152,13 +167,13 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     };
   }
 
-  // 2. Google DNS-over-HTTPS API Domain Verification (Port 443)
+  // 4. Google DNS-over-HTTPS API Domain Verification (Port 443)
   const dohCheck = await verifyDomainDnsOverHttps(domain);
   if (!dohCheck.valid) {
     return { valid: false, reason: dohCheck.reason || `The domain '@${domain}' does not exist.` };
   }
 
-  // 3. Local Node DNS MX record lookup
+  // 5. Local Node DNS MX record lookup
   let mxRecords;
   try {
     mxRecords = await dnsPromises.resolveMx(domain);
@@ -169,11 +184,11 @@ export async function validateEmailDomain(email: string): Promise<{ valid: boole
     return { valid: false, reason: `The email domain '@${domain}' does not exist or has no active mail server.` };
   }
 
-  // 4. Live SMTP mailbox ping verification (if port 25 is unblocked)
+  // 6. Live SMTP mailbox ping verification (if port 25 is unblocked)
   mxRecords.sort((a, b) => a.priority - b.priority);
-  const mxPing = await verifyMailboxExistsSmtp(email, mxRecords[0].exchange);
+  const mxPing = await verifyMailboxExistsSmtp(trimmed, mxRecords[0].exchange);
   if (!mxPing.exists) {
-    return { valid: false, reason: mxPing.reason || `The email address '${email}' does not exist on the target mail server.` };
+    return { valid: false, reason: mxPing.reason || `The email address '${trimmed}' does not exist on the target mail server.` };
   }
 
   return { valid: true };
