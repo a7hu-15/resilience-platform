@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install && cd core && npm install",
-  "buildCommand": "cd core && npx prisma generate && next build --no-turbopack",
+  "buildCommand": "cd core && npx prisma generate && next build",
   "outputDirectory": "core/.next"
 }
