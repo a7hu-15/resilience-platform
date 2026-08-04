@@ -98,13 +98,28 @@ const ReportDocument: React.FC<{ data: ReportData }> = ({ data }) => (
   </Document>
 );
 
+import { promises as fsPromises } from 'fs';
+
 /**
  * Generates a PDF report for the test run using @react-pdf/renderer.
  */
 export async function generatePDFReport(testRunId: string, data: ReportData): Promise<string> {
   const fileName = `report-${testRunId}.pdf`;
-  const filePath = join(process.cwd(), 'public', 'reports', fileName);
+  const reportsDir = join(process.cwd(), 'public', 'reports');
 
-  await renderToFile(<ReportDocument data={data} />, filePath);
-  return filePath;
+  try {
+    await fsPromises.mkdir(reportsDir, { recursive: true });
+    const filePath = join(reportsDir, fileName);
+    await renderToFile(<ReportDocument data={data} />, filePath);
+    return filePath;
+  } catch (error) {
+    try {
+      const tmpPath = join('/tmp', fileName);
+      await renderToFile(<ReportDocument data={data} />, tmpPath);
+      return tmpPath;
+    } catch (tmpErr) {
+      console.warn(`[PDF Engine] Could not write PDF file on serverless:`, tmpErr);
+      return '';
+    }
+  }
 }
