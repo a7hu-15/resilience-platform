@@ -1,5 +1,0 @@
-{
-  "buildCommand": "cd core && npm install && npx prisma generate && next build",
-  "outputDirectory": "core/.next",
-  "installCommand": "echo 'skipping root install'"
-}
