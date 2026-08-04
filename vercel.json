@@ -1,6 +1,5 @@
 {
-  "framework": "nextjs",
-  "installCommand": "npm install && cd core && npm install",
-  "buildCommand": "cd core && npx prisma generate && next build",
-  "outputDirectory": "core/.next"
+  "buildCommand": "cd core && npm install && npx prisma generate && next build",
+  "outputDirectory": "core/.next",
+  "installCommand": "echo 'skipping root install'"
 }
