@@ -6,7 +6,6 @@ import { runIacScan } from '../security/iac';
 import { runLoadTest } from '../load/k6';
 import { injectPodKill } from '../chaos/experiments';
 import { observeRecovery } from '../chaos/recovery';
-import { sendWebhookNotification } from '../notifications/webhook';
 import { 
   calculateSecurityScore,
   calculateIacScore,
@@ -15,12 +14,28 @@ import {
   calculateResilienceScore, 
   calculateMasterScore 
 } from '../scoring/algorithms';
-import { generatePDFReport, ReportData } from '../reports/pdf';
 
 export interface PipelineOptions {
   registryUser?: string;
   registryToken?: string;
-  webhookUrl?: string;
+}
+
+export interface ReportData {
+  imageName: string;
+  masterScore: number;
+  securityScore: number;
+  iacScore: number;
+  dastScore: number;
+  performanceScore: number;
+  resilienceScore: number;
+  securityResult: any;
+  iacResult: any;
+  dastResult: any;
+  performanceResult: any;
+  rtoSeconds: number | null;
+  qualityGatePassed?: boolean;
+  sbomPackages?: number;
+  secretsCount?: number;
 }
 
 /**
@@ -30,7 +45,7 @@ export interface PipelineOptions {
  * 
  * @param imageName The Docker image to test (e.g., 'nginx:alpine' or 'ashu804/slow-app')
  * @param testRunId A unique UUID for this test run
- * @param options Optional registry auth credentials and webhook notification URL
+ * @param options Optional registry auth credentials
  */
 export async function executeTestPipeline(
   imageName: string, 
@@ -86,7 +101,6 @@ export async function executeTestPipeline(
     // 8. Empirical Master Score Engine
     const masterScore = calculateMasterScore(securityScore, iacScore, dastScore, performanceScore, resilienceScore);
 
-    // Assemble final empirical report data payload
     const reportData: ReportData = {
       imageName,
       masterScore,
@@ -101,22 +115,6 @@ export async function executeTestPipeline(
       performanceResult,
       rtoSeconds
     };
-
-    // 9. Generate PDF Report
-    await generatePDFReport(testRunId, reportData);
-
-    // 10. Dispatch Webhook Alert if configured
-    if (options?.webhookUrl) {
-      await sendWebhookNotification(options.webhookUrl, {
-        testRunId,
-        imageName,
-        masterScore,
-        qualityGatePassed: masterScore >= 70 && securityScore >= 70,
-        securityScore,
-        performanceScore,
-        resilienceScore
-      });
-    }
     
     console.log(`[Pipeline] Empirical test pipeline completed successfully for ${imageName}. Master Score: ${masterScore}`);
     return reportData;
@@ -125,7 +123,6 @@ export async function executeTestPipeline(
     console.error(`[Pipeline] Pipeline execution error:`, error.message);
     throw new Error(`Pipeline execution failed: ${error.message}`);
   } finally {
-    // Teardown sandbox container to clean up system resources
     if (sandbox) {
       await teardownSandboxContainer(sandbox.containerName);
     }
@@ -133,9 +130,8 @@ export async function executeTestPipeline(
 }
 
 /**
- * Cloud Analytical Engine for Serverless Deployments (Vercel / Cloud Functions).
- * Provides deep static inspection, security analysis, performance benchmarks, and chaos simulations
- * when running in cloud environments without a local Docker daemon socket.
+ * Cloud Analytical Engine for environments without a local Docker daemon.
+ * Provides static inspection, security analysis, performance benchmarks, and chaos simulations.
  */
 async function executeSimulatedPipeline(
   imageName: string,
@@ -172,7 +168,7 @@ async function executeSimulatedPipeline(
 
   const dastResult = {
     sqlInjectionCount: 0,
-    xssCount: isWeb ? 0 : 0,
+    xssCount: 0,
     brokenAuthCount: 0,
     cveId: 'CWE-693',
     description: 'Missing Strict-Transport-Security (HSTS) and X-Frame-Options headers.',
@@ -219,20 +215,6 @@ async function executeSimulatedPipeline(
     rtoSeconds,
     qualityGatePassed: masterScore >= 70 && securityScore >= 70
   };
-
-  await generatePDFReport(testRunId, reportData);
-
-  if (options?.webhookUrl) {
-    await sendWebhookNotification(options.webhookUrl, {
-      testRunId,
-      imageName,
-      masterScore,
-      qualityGatePassed: reportData.qualityGatePassed || false,
-      securityScore,
-      performanceScore,
-      resilienceScore
-    });
-  }
 
   console.log(`[Cloud Engine] Analytical simulation complete for ${imageName}. Master Score: ${masterScore}`);
   return reportData;
