@@ -24,6 +24,23 @@ export default function Dashboard() {
     return styles.warningText;
   };
 
+  const getDotColor = (state: string) => {
+    if (state === 'Healthy') return '#22c55e';
+    if (state === 'Offline') return '#ef4444';
+    return '#eab308';
+  };
+
+  const services = [
+    { label: 'Frontend', state: healthData?.platform?.frontend },
+    { label: 'API', state: healthData?.platform?.backend },
+    { label: 'PostgreSQL', state: healthData?.platform?.database },
+    { label: 'Redis', state: healthData?.platform?.redis },
+    { label: 'Worker', state: healthData?.platform?.worker },
+    { label: 'Docker', state: healthData?.platform?.docker },
+  ];
+
+  const allHealthy = services.every(s => s.state === 'Healthy');
+
   const filteredTrends = analyticsData?.trends?.filter((t: any) => 
     t.imageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.status.toLowerCase().includes(searchTerm.toLowerCase())
@@ -33,6 +50,19 @@ export default function Dashboard() {
     <div className={styles.page}>
       <header className={styles.topNav}>
         <div className={styles.brand}>Resilience Cloud</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flex: 1, justifyContent: 'center' }}>
+          {services.map(svc => (
+            <div key={svc.label} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#94a3b8' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: getDotColor(svc.state), display: 'inline-block', boxShadow: svc.state === 'Healthy' ? '0 0 6px #22c55e' : 'none' }} />
+              {svc.label}
+            </div>
+          ))}
+          {healthData && (
+            <span style={{ fontSize: '0.75rem', color: allHealthy ? '#22c55e' : '#eab308', marginLeft: '0.5rem', fontWeight: 600 }}>
+              {allHealthy ? 'All Systems Operational' : 'Degraded'}
+            </span>
+          )}
+        </div>
         <div className={styles.navActions}>
           <span className={styles.userEmail}>Local Mode</span>
           <Button variant="secondary" onClick={() => router.push('/history')}>History</Button>
@@ -49,36 +79,7 @@ export default function Dashboard() {
         </div>
 
         <div className={styles.dashboardGrid}>
-          {/* Platform Health Section */}
-          <section className={styles.section} style={{ gridColumn: '1 / -1' }}>
-            <h2 className={styles.sectionTitle}>Platform Health</h2>
-            <div className={styles.cardsGrid}>
-              <Card className={styles.healthCard}>
-                <h4>Frontend</h4>
-                <div className={getHealthClass(healthData?.platform?.frontend)}>{healthData?.platform?.frontend || 'Loading...'}</div>
-              </Card>
-              <Card className={styles.healthCard}>
-                <h4>Backend API</h4>
-                <div className={getHealthClass(healthData?.platform?.backend)}>{healthData?.platform?.backend || 'Loading...'}</div>
-              </Card>
-              <Card className={styles.healthCard}>
-                <h4>PostgreSQL</h4>
-                <div className={getHealthClass(healthData?.platform?.database)}>{healthData?.platform?.database || 'Loading...'}</div>
-              </Card>
-              <Card className={styles.healthCard}>
-                <h4>Redis Queue</h4>
-                <div className={getHealthClass(healthData?.platform?.redis)}>{healthData?.platform?.redis || 'Loading...'}</div>
-              </Card>
-              <Card className={styles.healthCard}>
-                <h4>BullMQ Worker</h4>
-                <div className={getHealthClass(healthData?.platform?.worker)}>{healthData?.platform?.worker || 'Loading...'}</div>
-              </Card>
-              <Card className={styles.healthCard}>
-                <h4>Docker Engine</h4>
-                <div className={getHealthClass(healthData?.platform?.docker)}>{healthData?.platform?.docker || 'Loading...'}</div>
-              </Card>
-            </div>
-          </section>
+          {/* Platform Health is now in the nav bar */}
 
           {/* Worker Pool & Queue Analytics */}
           <section className={styles.section}>
