@@ -4,14 +4,6 @@
 
 ---
 
-## 📖 Documentation Hub
-- [Architecture & System Design](./docs/ARCHITECTURE.md)
-- [Validation Pipeline Workflow](./docs/WORKFLOW.md)
-- [Local Setup Guide](./docs/SETUP_GUIDE.md)
-- [REST API Reference](./docs/API.md)
-
----
-
 ## 🚀 Key Features
 
 ### 1. Operations Center & Dashboard
