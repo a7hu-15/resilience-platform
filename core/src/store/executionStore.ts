@@ -44,6 +44,7 @@ interface ExecutionState {
   addLog: (stageId: string, message: string) => void;
   updatePodStatus: (nodeId: string, podId: string, status: Pod['status']) => void;
   setComplete: (score: number) => void;
+  setTargetImage: (imageName: string) => void;
 }
 
 const INITIAL_STAGES: Stage[] = [
@@ -59,19 +60,11 @@ const INITIAL_STAGES: Stage[] = [
 
 const INITIAL_NODES: ClusterNode[] = [
   {
-    id: 'node-1',
-    name: 'eks-node-group-1',
+    id: 'sandbox-node-1',
+    name: 'K3s Sandbox Node (Primary)',
     status: 'Ready',
     pods: [
-      { id: 'pod-1', name: 'app-deployment-abc1', status: 'Running', cpu: '12%', memory: '84 MB' }
-    ]
-  },
-  {
-    id: 'node-2',
-    name: 'eks-node-group-2',
-    status: 'Ready',
-    pods: [
-      { id: 'pod-2', name: 'app-deployment-xyz9', status: 'Running', cpu: '10%', memory: '82 MB' }
+      { id: 'target-pod', name: 'target-image-sandbox', status: 'Running', cpu: '0%', memory: '0 MB', isTarget: true }
     ]
   }
 ];
@@ -113,5 +106,17 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
     })
   })),
 
-  setComplete: (score) => set({ isComplete: true, score })
+  setComplete: (score) => set({ isComplete: true, score }),
+  
+  setTargetImage: (imageName) => set((state) => ({
+    clusterNodes: state.clusterNodes.map(node => {
+      if (node.id === 'sandbox-node-1') {
+        return {
+          ...node,
+          pods: node.pods.map(pod => pod.id === 'target-pod' ? { ...pod, name: imageName } : pod)
+        };
+      }
+      return node;
+    })
+  }))
 }));

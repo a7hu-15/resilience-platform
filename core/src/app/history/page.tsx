@@ -2,13 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import styles from '../page.module.css';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 
 export default function HistoryPage() {
-  const { status } = useSession();
   const router = useRouter();
 
   const [runs, setRuns] = useState<any[]>([]);
@@ -17,23 +15,11 @@ export default function HistoryPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router]);
-
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetch('/api/analytics').then(res => res.json()).then(data => {
-        // Analytics API returns trends which are basically all recent runs for the user
-        setRuns(data.trends || []);
-      });
-    }
-  }, [status]);
-
-  if (status === 'loading') {
-    return <div style={{ color: 'white', padding: '2rem' }}>Loading session...</div>;
-  }
+    fetch('/api/analytics').then(res => res.json()).then(data => {
+      // Analytics API returns trends which are basically all recent runs for the user
+      setRuns(data.trends || []);
+    });
+  }, []);
 
   let filtered = runs.filter(r => 
     r.imageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
