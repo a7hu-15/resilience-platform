@@ -75,3 +75,19 @@ h1, h2, h3, h4, h5, h6 {
 .animate-fade-up {
   animation: fadeUp 0.4s ease-out forwards;
 }
+
+/* ── Hide Next.js dev indicator (the "N" button) everywhere ── */
+nextjs-portal,
+#__next-build-watcher,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay],
+[data-nextjs-dialog],
+.__next-error-h1,
+[data-next-badge],
+[data-nextjs-build-indicator],
+nextjs-portal > * {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
