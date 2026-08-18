@@ -2,13 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
 import styles from './page.module.css';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 
 export default function Dashboard() {
-  const { data: session, status } = useSession();
   const router = useRouter();
 
   const [healthData, setHealthData] = useState<any>(null);
@@ -16,21 +14,9 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router]);
-
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetch('/api/health').then(res => res.json()).then(data => setHealthData(data));
-      fetch('/api/analytics').then(res => res.json()).then(data => setAnalyticsData(data));
-    }
-  }, [status]);
-
-  if (status === 'loading') {
-    return <div style={{ color: 'white', padding: '2rem' }}>Loading session...</div>;
-  }
+    fetch('/api/health').then(res => res.json()).then(data => setHealthData(data));
+    fetch('/api/analytics').then(res => res.json()).then(data => setAnalyticsData(data));
+  }, []);
 
   const getHealthClass = (state: string) => {
     if (state === 'Healthy') return styles.healthyText;
@@ -48,9 +34,8 @@ export default function Dashboard() {
       <header className={styles.topNav}>
         <div className={styles.brand}>Resilience Cloud</div>
         <div className={styles.navActions}>
-          <span className={styles.userEmail}>{session?.user?.email}</span>
+          <span className={styles.userEmail}>Local Mode</span>
           <Button variant="secondary" onClick={() => router.push('/history')}>History</Button>
-          <Button variant="secondary" onClick={() => signOut()}>Logout</Button>
         </div>
       </header>
 

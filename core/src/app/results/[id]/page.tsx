@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import styles from './results.module.css';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -11,7 +10,6 @@ import { MetricsChart } from './components/MetricsChart';
 import { useExecutionStore } from '../../../store/executionStore';
 
 export default function LiveExecutionDashboard() {
-  const { data: session, status } = useSession();
   const params = useParams();
   const router = useRouter();
   
@@ -30,12 +28,6 @@ export default function LiveExecutionDashboard() {
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router]);
-
-  useEffect(() => {
     if (terminalEndRef.current) {
       terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -43,7 +35,7 @@ export default function LiveExecutionDashboard() {
 
   // Simulate SSE stream
   useEffect(() => {
-    if (status !== 'authenticated' || isComplete || testRunId === params.id) return;
+    if (isComplete || testRunId === params.id) return;
     
     initializeTest(params.id as string);
 
@@ -83,11 +75,7 @@ export default function LiveExecutionDashboard() {
     return () => {
       eventSource.close();
     };
-  }, [status, params.id, isComplete, initializeTest, testRunId, updateStageStatus, addLog, updatePodStatus, setComplete]);
-
-  if (status === 'loading') {
-    return <div style={{ color: 'white', padding: '2rem', textAlign: 'center' }}>Loading dashboard...</div>;
-  }
+  }, [params.id, isComplete, initializeTest, testRunId, updateStageStatus, addLog, updatePodStatus, setComplete]);
 
   const currentStage = stages.find(s => s.status === 'running') || stages[stages.length - 1];
 

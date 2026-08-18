@@ -4,14 +4,14 @@ import prisma from '../src/db/prisma';
 async function main() {
   console.log('Seeding Resilience Cloud Demo Data...');
 
-  // 1. Create a generic Demo User
-  const demoUserId = 'demo-user-123';
+  // 1. Create a generic Local Admin User
+  const demoUserId = 'local-admin';
   await prisma.user.upsert({
     where: { id: demoUserId },
     update: {},
     create: {
       id: demoUserId,
-      email: 'demo@resilience.cloud',
+      email: 'local@resilience.cloud',
       passwordHash: 'hashed-password-stub',
       emailVerified: true
     }
