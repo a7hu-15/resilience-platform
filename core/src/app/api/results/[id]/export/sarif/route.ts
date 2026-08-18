@@ -93,7 +93,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         {
           tool: {
             driver: {
-              name: 'Resilience Platform Engine',
+              name: 'Resilience Cloud Engine',
               version: '1.0.0',
               rules: sarifRules
             }

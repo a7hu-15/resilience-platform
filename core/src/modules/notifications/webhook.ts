@@ -18,7 +18,7 @@ export async function sendWebhookNotification(
   console.log(`[Notification Engine] Dispatching webhook alert for run ${payload.testRunId} to ${webhookUrl}`);
 
   const card = {
-    text: `🚀 *Resilience Platform Scan Completed*`,
+    text: `🚀 *Resilience Cloud Scan Completed*`,
     attachments: [
       {
         color: payload.qualityGatePassed ? '#22c55e' : '#ef4444',

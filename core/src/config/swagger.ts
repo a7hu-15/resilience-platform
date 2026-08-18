@@ -6,9 +6,9 @@ export const getApiDocs = async () => {
     definition: {
       openapi: '3.0.0',
       info: {
-        title: 'Resilience Platform API',
+        title: 'Resilience Cloud API',
         version: '1.0.0',
-        description: 'Auto-generated Swagger API Documentation for Resilience Platform',
+        description: 'Auto-generated Swagger API Documentation for Resilience Cloud',
       },
       components: {
         securitySchemes: {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { executeTestPipeline } from '../../../modules/pipeline/orchestrator';
+import { queueManager } from '../../../modules/queue/manager';
 import { randomUUID } from 'crypto';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
@@ -58,6 +58,17 @@ export async function POST(request: Request) {
 
     const testRunId = randomUUID();
 
+    // Ensure the user exists in the new Postgres database to prevent stale JWT fkey errors
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        email: session.user.email || `stale-${userId}@resilience.dev`,
+        passwordHash: 'stale-jwt-bypass'
+      }
+    });
+
     // 1. Create a TestRun record in Prisma as PENDING
     const testRun = await prisma.testRun.create({
       data: {
@@ -68,107 +79,18 @@ export async function POST(request: Request) {
       }
     });
 
-    // 2. Trigger the asynchronous pipeline
-    executeTestPipeline(imageName, testRunId, { registryUser, registryToken, webhookUrl })
-      .then(async (reportData) => {
-        // 3. Update Prisma on Success
-        await prisma.testRun.update({
-          where: { id: testRunId },
-          data: {
-            status: 'COMPLETED',
-            masterScore: reportData.masterScore,
-            securityScore: reportData.securityScore,
-            iacScore: reportData.iacScore,
-            dastScore: reportData.dastScore,
-            performanceScore: reportData.performanceScore,
-            resilienceScore: reportData.resilienceScore
-          }
-        });
-        
-        // 4. Save Security Logs
-        await prisma.securityLog.create({
-          data: {
-            testRunId: testRunId,
-            criticalCVEs: reportData.securityResult.critical,
-            highCVEs: reportData.securityResult.high,
-            mediumCVEs: reportData.securityResult.medium,
-            reportJson: JSON.stringify(reportData.securityResult.rawJson)
-          }
-        });
-
-        // 5. Save DastLog
-        await prisma.dastLog.create({
-          data: {
-            testRunId: testRunId,
-            sqlInjectionCount: reportData.dastResult.sqlInjectionCount,
-            xssCount: reportData.dastResult.xssCount,
-            brokenAuthCount: reportData.dastResult.brokenAuthCount,
-            cveId: reportData.dastResult.cveId,
-            description: reportData.dastResult.description,
-            mitigationSteps: reportData.dastResult.mitigationSteps,
-            reportJson: JSON.stringify(reportData.dastResult.rawJson)
-          }
-        });
-
-        // 6. Save IacLog
-        await prisma.iacLog.create({
-          data: {
-            testRunId: testRunId,
-            missingLimitsCount: reportData.iacResult.missingLimitsCount,
-            rootPrivilegeCount: reportData.iacResult.rootPrivilegeCount,
-            networkPolicyFlawsCount: reportData.iacResult.networkPolicyFlawsCount,
-            cveId: reportData.iacResult.cveId,
-            description: reportData.iacResult.description,
-            mitigationSteps: reportData.iacResult.mitigationSteps,
-            reportJson: JSON.stringify(reportData.iacResult.rawJson)
-          }
-        });
-
-        // 7. Save Performance Metrics
-        await prisma.performanceMetric.create({
-          data: {
-            testRunId: testRunId,
-            p95LatencyMs: reportData.performanceResult.p95LatencyMs,
-            rps: reportData.performanceResult.requestsPerSecond,
-            successRate: reportData.performanceResult.successRate
-          }
-        });
-
-        // 8. Save Chaos Metrics
-        if (reportData.rtoSeconds !== null) {
-          await prisma.chaosMetric.create({
-            data: {
-              testRunId: testRunId,
-              phase: 'POD_KILL',
-              rtoSeconds: reportData.rtoSeconds,
-              p95Latency: reportData.performanceResult.p95LatencyMs,
-              success: true
-            }
-          });
-        }
-
-        // 9. Send Email Notification
-        // @ts-ignore
-        await sendCompletionEmail(session.user.email, testRunId, reportData.masterScore);
-      })
-      .catch(async (error) => {
-        // 6. Update Prisma on Failure
-        const errorMsg = error?.message || 'Pipeline execution error';
-        console.error(`Pipeline Failed for ${testRunId}:`, errorMsg);
-        await prisma.testRun.update({
-          where: { id: testRunId },
-          data: { status: `FAILED: ${errorMsg}` }
-        });
-      });
+    // 2. Trigger the asynchronous pipeline via Redis Queue
+    await queueManager.enqueueJob(testRunId, imageName, userId, { registryUser, registryToken, webhookUrl });
 
     // Return 202 Accepted immediately so the frontend can start polling via SSE
     return NextResponse.json({
-      message: 'Test pipeline initiated',
+      message: 'Test pipeline initiated and queued for execution.',
       testRunId: testRunId,
-      status: 'RUNNING'
+      status: 'QUEUED'
     }, { status: 202 });
 
   } catch (error: any) {
+    console.error('[API run-test error]:', error);
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }

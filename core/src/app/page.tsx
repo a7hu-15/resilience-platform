@@ -1,42 +1,19 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import styles from './page.module.css';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
-
-const PIPELINE_STEPS = [
-  'Container Sec',
-  'IaC Scanning',
-  'DAST Attack',
-  'Load Testing',
-  'Chaos Mesh'
-];
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
-  const [image, setImage] = useState('');
-  const [registryUser, setRegistryUser] = useState('');
-  const [registryToken, setRegistryToken] = useState('');
-  const [webhookUrl, setWebhookUrl] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  const [isRunning, setIsRunning] = useState(false);
-  const [logs, setLogs] = useState<{ time: string; msg: string }[]>([]);
-  const [currentStep, setCurrentStep] = useState(-1);
   const router = useRouter();
-  const terminalEndRef = useRef<HTMLDivElement>(null);
 
-  const PRESETS = [
-    'nginx:alpine',
-    'node:18-alpine',
-    'redis:alpine',
-    'python:3.11-slim',
-    'ghcr.io/sample/app:latest'
-  ];
+  const [healthData, setHealthData] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -45,229 +22,183 @@ export default function Dashboard() {
   }, [status, router]);
 
   useEffect(() => {
-    if (terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (status === 'authenticated') {
+      fetch('/api/health').then(res => res.json()).then(data => setHealthData(data));
+      fetch('/api/analytics').then(res => res.json()).then(data => setAnalyticsData(data));
     }
-  }, [logs]);
-
-  const addLog = (msg: string) => {
-    setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg }]);
-  };
-
-  const startTest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!image || !session) return;
-    
-    setIsRunning(true);
-    setCurrentStep(0); // Start at step 0
-    setLogs([{ time: new Date().toLocaleTimeString(), msg: `Initializing resilience pipeline for [${image}]...` }]);
-
-    try {
-      const res = await fetch('/api/run-test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          imageName: image,
-          registryUser: registryUser.trim() || undefined,
-          registryToken: registryToken.trim() || undefined,
-          webhookUrl: webhookUrl.trim() || undefined
-        })
-      });
-
-      if (!res.ok) {
-        addLog('Failed to start pipeline. Check backend logs.');
-        setIsRunning(false);
-        setCurrentStep(-1);
-        return;
-      }
-
-      const { testRunId } = await res.json();
-      addLog(`Pipeline started (ID: ${testRunId}). Awaiting logs...`);
-
-      let simulatedStep = 0;
-      const stepInterval = setInterval(() => {
-        simulatedStep++;
-        if (simulatedStep < PIPELINE_STEPS.length) {
-          setCurrentStep(simulatedStep);
-          addLog(`Starting phase: ${PIPELINE_STEPS[simulatedStep]}...`);
-        } else {
-          clearInterval(stepInterval);
-        }
-      }, 4000);
-
-      const interval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`/api/test-status/${testRunId}`);
-          if (statusRes.ok) {
-            const data = await statusRes.json();
-            if (data.status === 'COMPLETED') {
-              clearInterval(interval);
-              clearInterval(stepInterval);
-              setCurrentStep(PIPELINE_STEPS.length);
-              addLog('Pipeline completed successfully. Redirecting to results...');
-              setTimeout(() => {
-                router.push(`/results/${testRunId}`);
-              }, 1500);
-            } else if (data.status === 'FAILED') {
-              clearInterval(interval);
-              clearInterval(stepInterval);
-              addLog(`❌ Pipeline failed: ${data.error || 'Ensure Docker Desktop is running and image exists.'}`);
-              setCurrentStep(PIPELINE_STEPS.length);
-            } else {
-              addLog('Executing backend engine diagnostics...');
-            }
-          }
-        } catch (err) {
-          addLog('Error polling status.');
-        }
-      }, 3000);
-
-    } catch (err) {
-      addLog('Network error connecting to API.');
-      setIsRunning(false);
-      setCurrentStep(-1);
-    }
-  };
+  }, [status]);
 
   if (status === 'loading') {
     return <div style={{ color: 'white', padding: '2rem' }}>Loading session...</div>;
   }
 
+  const getHealthClass = (state: string) => {
+    if (state === 'Healthy') return styles.healthyText;
+    if (state === 'Offline') return styles.failedText;
+    return styles.warningText;
+  };
+
+  const filteredTrends = analyticsData?.trends?.filter((t: any) => 
+    t.imageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.status.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
   return (
     <div className={styles.page}>
+      <header className={styles.topNav}>
+        <div className={styles.brand}>Resilience Cloud</div>
+        <div className={styles.navActions}>
+          <span className={styles.userEmail}>{session?.user?.email}</span>
+          <Button variant="secondary" onClick={() => router.push('/history')}>History</Button>
+          <Button variant="secondary" onClick={() => signOut()}>Logout</Button>
+        </div>
+      </header>
+
       <main className={styles.main}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-          <Button variant="secondary" onClick={() => signOut()}>Logout ({session?.user?.email})</Button>
-        </div>
-        
-        <div className={`${styles.header} animate-fade-up`}>
-          <h1 className={`${styles.title} text-gradient`}>Resilience Platform</h1>
-          <p className={styles.subtitle}>Automated Security, Performance, and Chaos Engineering</p>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.title}>Operations Center</h1>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <Button variant="secondary" onClick={() => router.push('/results/demo-run-a-success')}>▶ Start Demo Mode</Button>
+            <Button className={styles.primaryBtn} onClick={() => router.push('/create')}>+ Start Validation Pipeline</Button>
+          </div>
         </div>
 
-        <div className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
-          <Card>
-            <form className={styles.form} onSubmit={startTest}>
-              <Input 
-                placeholder="Enter Docker Image (e.g., nginx:alpine or ghcr.io/org/app:latest)" 
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                disabled={isRunning}
-                required
+        <div className={styles.dashboardGrid}>
+          {/* Platform Health Section */}
+          <section className={styles.section} style={{ gridColumn: '1 / -1' }}>
+            <h2 className={styles.sectionTitle}>Platform Health</h2>
+            <div className={styles.cardsGrid}>
+              <Card className={styles.healthCard}>
+                <h4>Frontend</h4>
+                <div className={getHealthClass(healthData?.platform?.frontend)}>{healthData?.platform?.frontend || 'Loading...'}</div>
+              </Card>
+              <Card className={styles.healthCard}>
+                <h4>Backend API</h4>
+                <div className={getHealthClass(healthData?.platform?.backend)}>{healthData?.platform?.backend || 'Loading...'}</div>
+              </Card>
+              <Card className={styles.healthCard}>
+                <h4>PostgreSQL</h4>
+                <div className={getHealthClass(healthData?.platform?.database)}>{healthData?.platform?.database || 'Loading...'}</div>
+              </Card>
+              <Card className={styles.healthCard}>
+                <h4>Redis Queue</h4>
+                <div className={getHealthClass(healthData?.platform?.redis)}>{healthData?.platform?.redis || 'Loading...'}</div>
+              </Card>
+              <Card className={styles.healthCard}>
+                <h4>BullMQ Worker</h4>
+                <div className={getHealthClass(healthData?.platform?.worker)}>{healthData?.platform?.worker || 'Loading...'}</div>
+              </Card>
+              <Card className={styles.healthCard}>
+                <h4>Docker Engine</h4>
+                <div className={getHealthClass(healthData?.platform?.docker)}>{healthData?.platform?.docker || 'Loading...'}</div>
+              </Card>
+            </div>
+          </section>
+
+          {/* Worker Pool & Queue Analytics */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Validation Queue</h2>
+            <Card className={styles.projectCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span>Active Workers:</span>
+                <strong>{healthData?.queue?.activeWorkers || 0}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span>Queued Jobs:</span>
+                <strong className={styles.warningText}>{healthData?.queue?.queued || 0}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span>Running Jobs:</span>
+                <strong className={styles.healthyText}>{healthData?.queue?.running || 0}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Completed / Failed:</span>
+                <strong>{healthData?.queue?.completed || 0} / <span className={styles.failedText}>{healthData?.queue?.failed || 0}</span></strong>
+              </div>
+            </Card>
+          </section>
+
+          {/* Last 30 Days Analytics */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>30-Day Metrics</h2>
+            <Card className={styles.projectCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span>Total Deployments:</span>
+                <strong>{analyticsData?.metrics?.totalDeployments || 0}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span>Pass Rate:</span>
+                <strong>{analyticsData?.metrics?.passRate || 0}%</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <span>Avg Resilience Score:</span>
+                <strong>{analyticsData?.metrics?.avgScore || 0}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Avg RTO:</span>
+                <strong>{analyticsData?.metrics?.avgRecoveryTime || 0}s</strong>
+              </div>
+            </Card>
+          </section>
+
+          {/* Recent Pipelines Table */}
+          <section className={styles.section} style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className={styles.sectionTitle}>Recent Pipelines</h2>
+              <input 
+                type="text" 
+                placeholder="Search images or status..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #334155', background: '#0f172a', color: 'white' }}
               />
-
-              {/* One-Click Presets */}
-              <div className={styles.presetContainer}>
-                <span>⚡ Quick Presets:</span>
-                {PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={styles.presetBtn}
-                    onClick={() => setImage(preset)}
-                    disabled={isRunning}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-
-              {/* Advanced Settings Toggle */}
-              <div>
-                <button 
-                  type="button" 
-                  className={styles.advancedToggle} 
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                >
-                  {showAdvanced ? '▼ Hide Advanced Settings' : '▶ ⚙️ Private Registry Auth & Webhook Alerts'}
-                </button>
-              </div>
-
-              {showAdvanced && (
-                <div className={styles.advancedPanel}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>
-                    🔒 Private Container Registry Credentials (Optional)
-                  </div>
-                  <div className={styles.gridForm}>
-                    <Input 
-                      placeholder="Registry Username (e.g. DockerHub/ghcr.io user)"
-                      value={registryUser}
-                      onChange={(e) => setRegistryUser(e.target.value)}
-                      disabled={isRunning}
-                    />
-                    <Input 
-                      type="password"
-                      placeholder="Personal Access Token / Password"
-                      value={registryToken}
-                      onChange={(e) => setRegistryToken(e.target.value)}
-                      disabled={isRunning}
-                    />
-                  </div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)', marginTop: '0.5rem' }}>
-                    🔔 Webhook Alert Notification URL (Optional)
-                  </div>
-                  <Input 
-                    placeholder="Slack / Discord Webhook URL (e.g., https://hooks.slack.com/services/...)"
-                    value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
-                    disabled={isRunning}
-                  />
+            </div>
+            <Card className={styles.tableCard}>
+              {filteredTrends.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+                  No pipelines found. Start a validation pipeline to see results.
                 </div>
-              )}
-
-              <Button type="submit" disabled={isRunning || !image} className={styles.primary}>
-                {isRunning ? 'Running Analysis...' : 'Run Resilience Test'}
-              </Button>
-            </form>
-
-            {isRunning && (
-              <div className="animate-fade-up" style={{ animationDelay: '0.2s' }}>
-                
-                {/* Pipeline Stepper */}
-                <div className={styles.stepperContainer}>
-                  {PIPELINE_STEPS.map((step, idx) => {
-                    const isActive = currentStep === idx;
-                    const isCompleted = currentStep > idx;
-                    return (
-                      <div key={step} className={`${styles.step} ${isActive ? styles.active : ''} ${isCompleted ? styles.completed : ''}`}>
-                        <div className={styles.stepCircle}>
-                          {isCompleted ? '✓' : idx + 1}
-                        </div>
-                        <span className={styles.stepLabel}>{step}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Premium Terminal */}
-                <div className={styles.terminalContainer}>
-                  <div className={styles.terminalHeader}>
-                    <div className={`${styles.terminalDot} ${styles.dotRed}`}></div>
-                    <div className={`${styles.terminalDot} ${styles.dotYellow}`}></div>
-                    <div className={`${styles.terminalDot} ${styles.dotGreen}`}></div>
-                    <span className={styles.terminalTitle}>bash - resilience-engine</span>
-                  </div>
-                  <div className={styles.terminal}>
-                    {logs.map((log, index) => (
-                      <div key={index} className={styles.logEntry}>
-                        <span className={styles.timestamp}>[{log.time}]</span>
-                        <span className={styles.message}>
-                          {index === logs.length - 1 && currentStep < PIPELINE_STEPS.length ? <span className={styles.spinner} /> : null}
-                          {log.msg}
-                        </span>
-                      </div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Target Image</th>
+                      <th>Status</th>
+                      <th>Score</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTrends.map((test: any, idx: number) => (
+                      <tr key={idx}>
+                        <td className={styles.timeCell}>{test.date}</td>
+                        <td>{test.imageName}</td>
+                        <td>
+                          <span className={`${styles.statusIndicator} ${test.status === 'COMPLETED' ? styles.success : test.status.startsWith('FAILED') ? styles.failed : styles.running}`}>
+                            {test.status}
+                          </span>
+                        </td>
+                        <td className={styles.scoreCell}>
+                          <span className={test.score >= 80 ? styles.healthyText : styles.failedText}>{test.score.toFixed(1)}</span>
+                        </td>
+                        <td>
+                          <Button 
+                            variant="secondary" 
+                            onClick={() => router.push(`/history`)}
+                            className={styles.viewBtn}
+                          >
+                            View Details
+                          </Button>
+                        </td>
+                      </tr>
                     ))}
-                    <div ref={terminalEndRef} />
-                  </div>
-                  {currentStep >= PIPELINE_STEPS.length && (
-                    <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
-                      <Button onClick={() => setIsRunning(false)}>Try Again</Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </Card>
+                  </tbody>
+                </table>
+              )}
+            </Card>
+          </section>
+
         </div>
       </main>
     </div>

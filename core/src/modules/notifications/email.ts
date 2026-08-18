@@ -37,12 +37,12 @@ export async function sendOtpEmail(
   try {
     let subject = '🔒 Email Verification Code';
     let actionTitle = 'Email Verification Code';
-    let actionDesc = 'Use the 6-digit verification code below to complete your registration on Resilience Platform:';
+    let actionDesc = 'Use the 6-digit verification code below to complete your registration on Resilience Cloud:';
 
     if (purpose === 'LOGIN') {
       subject = '🔑 Login 2FA Verification Code';
       actionTitle = 'Two-Factor Login Code';
-      actionDesc = 'A login attempt was initiated for your Resilience Platform account. Use the code below to complete sign-in:';
+      actionDesc = 'A login attempt was initiated for your Resilience Cloud account. Use the code below to complete sign-in:';
     } else if (purpose === 'RESET_PASSWORD') {
       subject = '🔄 Password Reset Code';
       actionTitle = 'Password Reset Code';
@@ -51,7 +51,7 @@ export async function sendOtpEmail(
 
     const htmlContent = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 12px;">
-        <h2 style="color: #a855f7; margin-top: 0;">🛡️ Resilience Platform</h2>
+        <h2 style="color: #a855f7; margin-top: 0;">🛡️ Resilience Cloud</h2>
         <h3 style="color: #e2e8f0; font-size: 1.25rem;">${actionTitle}</h3>
         <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.5;">${actionDesc}</p>
         
@@ -73,7 +73,7 @@ export async function sendOtpEmail(
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: process.env.SMTP_FROM || 'Resilience Platform <onboarding@resend.dev>',
+            from: process.env.SMTP_FROM || 'Resilience Cloud <onboarding@resend.dev>',
             to: [userEmail],
             subject,
             html: htmlContent
@@ -97,7 +97,7 @@ export async function sendOtpEmail(
       try {
         const transporter = await getTransporter();
         const info = await transporter.sendMail({
-          from: process.env.SMTP_FROM || '"Resilience Platform Security" <no-reply@resilience-platform.local>',
+          from: process.env.SMTP_FROM || '"Resilience Cloud Security" <no-reply@resilience-platform.local>',
           to: userEmail,
           subject,
           text: `${actionTitle}: ${otp}. Valid for 10 minutes.`,
@@ -133,7 +133,7 @@ export async function sendCompletionEmail(userEmail: string, testRunId: string, 
     const transporter = await getTransporter();
 
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Resilience Platform" <no-reply@resilience-platform.local>',
+      from: process.env.SMTP_FROM || '"Resilience Cloud" <no-reply@resilience-platform.local>',
       to: userEmail,
       subject: `✅ Resilience Test Completed (Score: ${masterScore})`,
       text: `Your resilience test has completed. Your Master Score is ${masterScore}. View results at http://localhost:3000/results/${testRunId}`,

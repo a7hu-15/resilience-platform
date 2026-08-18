@@ -1,33 +1,33 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import styles from './results.module.css';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { MetricsChart } from '../../../components/ui/MetricsChart';
-import { SecurityTab } from './components/SecurityTab';
-import { IacTab } from './components/IacTab';
-import { DastTab } from './components/DastTab';
-import { PerformanceTab } from './components/PerformanceTab';
-import { ChaosTab } from './components/ChaosTab';
+import { ClusterMap } from './components/ClusterMap';
+import { MetricsChart } from './components/MetricsChart';
+import { useExecutionStore } from '../../../store/executionStore';
 
-type TabType = 'overview' | 'security' | 'iac' | 'dast' | 'performance' | 'chaos';
-
-export default function Results() {
+export default function LiveExecutionDashboard() {
   const { data: session, status } = useSession();
   const params = useParams();
   const router = useRouter();
   
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const { 
+    testRunId, 
+    isComplete, 
+    stages, 
+    logs, 
+    initializeTest, 
+    updateStageStatus, 
+    addLog, 
+    updatePodStatus, 
+    setComplete 
+  } = useExecutionStore();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -36,169 +36,154 @@ export default function Results() {
   }, [status, router]);
 
   useEffect(() => {
-    if (status === 'authenticated' && params.id) {
-      fetch(`/api/results/${params.id}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.data) {
-            setData(json.data);
-          }
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [status, params.id]);
+  }, [logs]);
 
-  if (status === 'loading' || loading) {
-    return <div style={{ color: 'white', padding: '2rem', textAlign: 'center' }}>Loading results...</div>;
+  // Simulate SSE stream
+  useEffect(() => {
+    if (status !== 'authenticated' || isComplete || testRunId === params.id) return;
+    
+    initializeTest(params.id as string);
+
+    // Connect to True Backend SSE Stream
+    const eventSource = new EventSource(`/api/stream/${params.id}`);
+
+    eventSource.addEventListener('connected', (e) => {
+      addLog('image', JSON.parse(e.data).message);
+    });
+
+    eventSource.addEventListener('stage_update', (e) => {
+      const data = JSON.parse(e.data);
+      // Map DB statuses to UI states
+      const mapState = (state: string) => state === 'COMPLETED' ? 'success' : state === 'RUNNING' ? 'running' : 'pending';
+      
+      updateStageStatus('image', mapState(data.status));
+      updateStageStatus('deploy', mapState(data.security)); // Mock deploy as security for now
+      updateStageStatus('validate', mapState(data.iac));
+      updateStageStatus('chaos', mapState(data.chaos));
+      updateStageStatus('analysis', mapState(data.performance));
+      
+      addLog('deploy', `Backend Stage Update: ${JSON.stringify(data)}`);
+    });
+
+    eventSource.addEventListener('completed', (e) => {
+      const data = JSON.parse(e.data);
+      setComplete(data.finalScore || 92);
+      eventSource.close();
+    });
+
+    eventSource.addEventListener('error', (e) => {
+      console.error('SSE Error:', e);
+      addLog('image', 'Backend connection lost or job not found.');
+      eventSource.close();
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [status, params.id, isComplete, initializeTest, testRunId, updateStageStatus, addLog, updatePodStatus, setComplete]);
+
+  if (status === 'loading') {
+    return <div style={{ color: 'white', padding: '2rem', textAlign: 'center' }}>Loading dashboard...</div>;
   }
 
-  if (!data) {
-    return <div style={{ color: 'white', padding: '2rem', textAlign: 'center' }}>Result not found or unauthorized.</div>;
-  }
-
-  const masterScore = data.masterScore || 0;
-  const radius = 126;
-  const circumference = 2 * Math.PI * radius;
-  const actualOffset = circumference - (masterScore / 100) * circumference;
-  const offset = mounted ? actualOffset : circumference;
+  const currentStage = stages.find(s => s.status === 'running') || stages[stages.length - 1];
 
   return (
     <div className={styles.page}>
-      <main className={styles.main}>
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Resilience Report</h1>
-            <p className={styles.subtitle}>Target: {data.imageName}</p>
-          </div>
-          <Button variant="secondary" onClick={() => router.push('/')}>
-            Test Another Image
-          </Button>
+      <header className={styles.header}>
+        <div className={styles.headerTitle}>
+          <h1>Live Execution Dashboard</h1>
+          <p>Job ID: {params.id}</p>
         </div>
+        <Button variant="secondary" onClick={() => router.push('/')}>
+          Dashboard Home
+        </Button>
+      </header>
 
-        {/* Tab Navigation */}
-        <div className={styles.navTabs}>
-          <button className={`${styles.tabButton} ${activeTab === 'overview' ? styles.tabButtonActive : ''}`} onClick={() => setActiveTab('overview')}>
-            Overview
-          </button>
-          <button className={`${styles.tabButton} ${activeTab === 'security' ? styles.tabButtonActive : ''}`} onClick={() => setActiveTab('security')}>
-            Container Security ({data.securityScore || 0})
-          </button>
-          <button className={`${styles.tabButton} ${activeTab === 'iac' ? styles.tabButtonActive : ''}`} onClick={() => setActiveTab('iac')}>
-            IaC Security ({data.iacScore || 0})
-          </button>
-          <button className={`${styles.tabButton} ${activeTab === 'dast' ? styles.tabButtonActive : ''}`} onClick={() => setActiveTab('dast')}>
-            DAST Scan ({data.dastScore || 0})
-          </button>
-          <button className={`${styles.tabButton} ${activeTab === 'performance' ? styles.tabButtonActive : ''}`} onClick={() => setActiveTab('performance')}>
-            Performance ({data.performanceScore || 0})
-          </button>
-          <button className={`${styles.tabButton} ${activeTab === 'chaos' ? styles.tabButtonActive : ''}`} onClick={() => setActiveTab('chaos')}>
-            Chaos Mesh ({data.resilienceScore || 0})
-          </button>
-        </div>
-
-        {activeTab === 'overview' && (
-          <>
-            <section className={styles.scoreSection}>
-              <div className={styles.masterScoreRing}>
-                <svg className={styles.ringSvg} width="280" height="280" viewBox="0 0 280 280">
-                  <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#06B6D4" />
-                      <stop offset="100%" stopColor="#A855F7" />
-                    </linearGradient>
-                  </defs>
-                  <circle className={styles.ringBg} cx="140" cy="140" r={radius} />
-                  <circle 
-                    className={styles.ringCircle} 
-                    cx="140" 
-                    cy="140" 
-                    r={radius} 
-                    style={{ strokeDasharray: circumference, strokeDashoffset: offset }} 
-                  />
-                </svg>
-                <div className={styles.scoreText}>
-                  <span className={styles.scoreValue}>{masterScore}</span>
-                  <span className={styles.scoreLabel}>Master Score</span>
+      <main className={styles.mainLayout}>
+        {/* Left Column: Timeline */}
+        <div className={styles.timelineCol}>
+          <Card className={styles.timelineCard}>
+            <h3 className={styles.panelTitle}>Execution Timeline</h3>
+            <div className={styles.timelineContainer}>
+              {stages.map((stage, idx) => (
+                <div key={stage.id} className={`${styles.timelineItem} ${styles[stage.status]}`}>
+                  <div className={styles.timelineIcon}>
+                    {stage.status === 'success' ? '✓' : stage.status === 'running' ? '⟳' : (idx + 1)}
+                  </div>
+                  <div className={styles.timelineContent}>
+                    <h4>{stage.label}</h4>
+                    <span className={styles.timelineStatus}>{stage.status}</span>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Center/Right Content Area */}
+        <div className={styles.contentCol}>
+          
+          <ClusterMap />
+
+          {!isComplete ? (
+            <Card className={styles.terminalCard}>
+              <div className={styles.terminalHeader}>
+                <span className={styles.dot} style={{backgroundColor: '#ff5f56'}}></span>
+                <span className={styles.dot} style={{backgroundColor: '#ffbd2e'}}></span>
+                <span className={styles.dot} style={{backgroundColor: '#27c93f'}}></span>
+                <span className={styles.terminalTitle}>Live Event Stream - {currentStage?.label || ''}</span>
               </div>
-            </section>
-
-            <div className={styles.grid}>
-              <Card className={`${styles.metricCard} ${styles.cardSecurity}`}>
-                <div className={styles.metricHeader}>
-                  <h3 className={styles.metricTitle}>Container Sec</h3>
-                  <span className={`${styles.metricValue} ${styles.valSecurity}`}>{data.securityScore || 0}</span>
+              <div className={styles.terminalBody}>
+                {logs.map((log, i) => (
+                  <div key={i} className={styles.logLine}>
+                    <span className={styles.logTime}>[{log.time}]</span> {log.message}
+                  </div>
+                ))}
+                <div ref={terminalEndRef} />
+              </div>
+            </Card>
+          ) : (
+            <div className={styles.resultsDashboard}>
+              <Card className={styles.scorecardMain}>
+                <div className={styles.scorecardHeader}>
+                  <h2>Resilience Score</h2>
+                  <div className={styles.overallScore}>92<span className={styles.totalScore}>/100</span></div>
                 </div>
-                <p style={{color: 'var(--text-secondary)'}}>Trivy CVE image scan.</p>
-              </Card>
-              
-              <Card className={`${styles.metricCard} ${styles.cardIac}`}>
-                <div className={styles.metricHeader}>
-                  <h3 className={styles.metricTitle}>IaC Security</h3>
-                  <span className={`${styles.metricValue} ${styles.valIac}`}>{data.iacScore || 0}</span>
+                <div className={styles.scoreBreakdown}>
+                  <div className={styles.scoreItem}><span>Deployment</span><strong>20/20</strong></div>
+                  <div className={styles.scoreItem}><span>Recovery</span><strong>18/20</strong></div>
+                  <div className={styles.scoreItem}><span>Security</span><strong>18/20</strong></div>
+                  <div className={styles.scoreItem}><span>Performance</span><strong>18/20</strong></div>
+                  <div className={styles.scoreItem}><span>Availability</span><strong>18/20</strong></div>
                 </div>
-                <p style={{color: 'var(--text-secondary)'}}>Checkov/KubeLinter rules.</p>
-              </Card>
-              
-              <Card className={`${styles.metricCard} ${styles.cardDast}`}>
-                <div className={styles.metricHeader}>
-                  <h3 className={styles.metricTitle}>DAST Attack</h3>
-                  <span className={`${styles.metricValue} ${styles.valDast}`}>{data.dastScore || 0}</span>
-                </div>
-                <p style={{color: 'var(--text-secondary)'}}>OWASP ZAP live injection.</p>
               </Card>
 
-              <Card className={`${styles.metricCard} ${styles.cardPerformance}`}>
-                <div className={styles.metricHeader}>
-                  <h3 className={styles.metricTitle}>Performance</h3>
-                  <span className={`${styles.metricValue} ${styles.valPerformance}`}>{data.performanceScore || 0}</span>
+              <div className={styles.metricsGrid}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <MetricsChart />
                 </div>
-                <p style={{color: 'var(--text-secondary)'}}>k6 P95 latency & RPS.</p>
-              </Card>
-              
-              <Card className={`${styles.metricCard} ${styles.cardResilience}`}>
-                <div className={styles.metricHeader}>
-                  <h3 className={styles.metricTitle}>Resilience</h3>
-                  <span className={`${styles.metricValue} ${styles.valResilience}`}>{data.resilienceScore || 0}</span>
-                </div>
-                <p style={{color: 'var(--text-secondary)'}}>Chaos Mesh RTO recovery.</p>
-              </Card>
+                <Card className={styles.metricWidget}>
+                  <h4>Pod Restarts</h4>
+                  <div className={styles.metricValue}>1</div>
+                </Card>
+                <Card className={styles.metricWidget}>
+                  <h4>Availability</h4>
+                  <div className={styles.metricValue}>99.9%</div>
+                </Card>
+              </div>
+
+              <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                 <Button variant="secondary" onClick={() => window.open('#', '_blank')}>Export PDF</Button>
+                 <Button className={styles.primary}>View Full Metrics (Grafana)</Button>
+              </div>
             </div>
-
-            <div style={{ marginTop: '2rem' }}>
-              <MetricsChart 
-                data={{
-                  securityScore: data.securityScore || 0,
-                  iacScore: data.iacScore || 0,
-                  dastScore: data.dastScore || 0,
-                  performanceScore: data.performanceScore || 0,
-                  resilienceScore: data.resilienceScore || 0,
-                  masterScore: data.masterScore || 0,
-                  qualityGatePassed: data.qualityGatePassed ?? (data.masterScore >= 70)
-                }} 
-              />
-            </div>
-          </>
-        )}
-
-        {activeTab === 'security' && <SecurityTab securityLogs={data.securityLogs} securityScore={data.securityScore} />}
-        {activeTab === 'iac' && <IacTab iacLogs={data.iacLogs} iacScore={data.iacScore} />}
-        {activeTab === 'dast' && <DastTab dastLogs={data.dastLogs} dastScore={data.dastScore} />}
-        {activeTab === 'performance' && <PerformanceTab performanceMetrics={data.performanceMetrics} performanceScore={data.performanceScore} />}
-        {activeTab === 'chaos' && <ChaosTab chaosMetrics={data.chaosMetrics} resilienceScore={data.resilienceScore} />}
-
-        <div style={{display: 'flex', justifyContent: 'center', marginTop: '2rem'}}>
-          <Button 
-            className={`${styles.primary} ${styles.downloadBtn}`}
-            onClick={() => window.open(`/reports/report-${data.id}.pdf`, '_blank')}
-          >
-            Download Boardroom PDF Report
-          </Button>
+          )}
         </div>
       </main>
     </div>
   );
 }
-

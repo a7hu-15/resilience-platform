@@ -14,8 +14,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Resilience Platform",
-  description: "A premium automated testing platform for Security, Performance, and Chaos Engineering.",
+  title: "Resilience Cloud",
+  description: "Enterprise Cloud Native Reliability Platform",
 };
 
 export default function RootLayout({
