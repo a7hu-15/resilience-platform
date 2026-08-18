@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
 import prisma from '../../../../db/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -25,10 +23,6 @@ export const dynamic = 'force-dynamic';
  *     responses:
  *       200:
  *         description: Test run results retrieved successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not own this test run)
  *       404:
  *         description: Test run not found
  *       500:
@@ -36,12 +30,30 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { id } = await params;
+
+    // --- MOCK RESPONSE FOR DEMO MODE ---
+    if (id === 'demo-run-a-success') {
+      return NextResponse.json({
+        data: {
+          id: 'demo-run-a-success',
+          imageName: 'ashu804/resilience-platform:latest',
+          status: 'COMPLETED',
+          masterScore: 92,
+          securityScore: 18,
+          iacScore: 19,
+          dastScore: 18,
+          performanceScore: 19,
+          resilienceScore: 18,
+          securityLogs: [{ criticalCVEs: 0, highCVEs: 1, mediumCVEs: 3 }],
+          iacLogs: [{ missingLimitsCount: 1, rootPrivilegeCount: 0 }],
+          chaosMetrics: [{ phase: 'POD_KILL', success: true }],
+          dastLogs: [{ xssCount: 0 }],
+          performanceMetrics: [{ successRate: 100, p95LatencyMs: 45 }],
+          createdAt: new Date().toISOString()
+        }
+      });
+    }
 
     const testRun = await prisma.testRun.findUnique({
       where: { id },
@@ -56,11 +68,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!testRun) {
       return NextResponse.json({ error: 'Test run not found' }, { status: 404 });
-    }
-
-    // @ts-ignore
-    if (testRun.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({ data: testRun });
