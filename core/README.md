@@ -12,7 +12,7 @@
 
 You can access and test the **Resilience Platform** globally from anywhere in the world:
 
-👉 **[https://resilience-platform-alpha.vercel.app](https://resilience-platform-alpha.vercel.app)** 👈
+👉 [**[https://resilience-platform-alpha.vercel.app](https://resilience-platform-alpha.vercel.app)**](https://core-f6o532r9z-a7hu-15s-projects.vercel.app/login) 👈
 
 ---
 
