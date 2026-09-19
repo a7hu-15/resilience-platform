@@ -1,18 +1,12 @@
 # 🛡️ Resilience Platform — Automated Security, Load & Chaos Engineering Ecosystem
 
-[![Live App](https://img.shields.io/badge/🌐_Live_App-resilience--platform.vercel.app-0070F3?style=for-the-badge&logo=vercel)](https://resilience-platform-alpha.vercel.app)
-[![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Docker](https://img.shields.io/badge/Docker-Engine-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com/)
-[![Prisma](https://img.shields.io/badge/Prisma-v7.8-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
-
 ---
 
 ## 🌐 Live Global Access URL
 
 You can access and test the **Resilience Platform** globally from anywhere in the world:
 
-👉 [**[https://resilience-platform-alpha.vercel.app](https://resilience-platform-alpha.vercel.app)**](https://core-f6o532r9z-a7hu-15s-projects.vercel.app/login) 👈
+👉 (https://core-f6o532r9z-a7hu-15s-projects.vercel.app/login) 👈
 
 ---
 
